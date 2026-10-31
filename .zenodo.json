@@ -1,0 +1,42 @@
+{
+  "title": "Rakennushaku: tilan rakennukset ja tunnittainen energiaprofiili Maatilan hybridienergialaskuriin",
+  "upload_type": "software",
+  "description": "<p>Selaimessa toimiva sovellus, joka hakee maatilan rakennukset Maanmittauslaitoksen avoimesta datasta, kalibroi valittujen rakennusten tunnittaisen lämmön- ja sähkönkulutuksen tilan omaan kulutustietoon (vuosi-, kuukausi- tai tuntitieto) ja saman vuoden säähavaintoihin (Ilmatieteen laitos, Open-Meteo) sekä vie 8 760 tunnin sarjat ja pörssihinnat Maatilan hybridienergialaskuriin. Menetelmät, oletukset ja lähteet on kuvattu tiedostossa docs/MENETELMAT_JA_LAHTEET.md.</p><p>Laadittu EIP CHP Energiaälykäs eteläpohjalainen maatila -hankkeessa (Euroopan unionin osarahoittama), Seinäjoen ammattikorkeakoulu.</p>",
+  "creators": [
+    {
+      "name": "Jääskeläinen, Miiro",
+      "orcid": "0000-0002-0683-8352",
+      "affiliation": "Seinäjoen ammattikorkeakoulu"
+    },
+    {
+      "name": "Karirinne, Suvi",
+      "orcid": "0000-0003-1000-557X",
+      "affiliation": "Seinäjoen ammattikorkeakoulu"
+    }
+  ],
+  "license": "MIT",
+  "access_right": "open",
+  "language": "fin",
+  "version": "0.5.0",
+  "keywords": [
+    "maatila",
+    "energia",
+    "hybridienergia",
+    "rakennukset",
+    "lämmöntarve",
+    "kalibrointi",
+    "Maanmittauslaitos",
+    "Ilmatieteen laitos",
+    "pörssisähkö",
+    "agricultural energy",
+    "building energy"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/SeAMKedu/dkk-flightmanager",
+      "relation": "references",
+      "resource_type": "software"
+    }
+  ],
+  "notes": "Prototyyppi. Oletusparametreja ei ole validoitu mitatuilla tiloilla; ks. docs/MENETELMAT_JA_LAHTEET.md luku 12."
+}

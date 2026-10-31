@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rakennushaku"
+version = "0.5.0"
+description = "Tilan lämmitettävät rakennukset ja tunnittainen energiaprofiili Maatilan hybridienergialaskuriin"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Miiro Jääskeläinen" }, { name = "Suvi Karirinne" }]
+dependencies = [
+  "fastapi>=0.110",
+  "uvicorn>=0.27",
+  "requests>=2.31",
+  "numpy>=1.24",
+  "shapely>=2.0",
+  "tzdata; platform_system == 'Windows'",
+]
+
+[project.urls]
+Homepage = "https://github.com/SeAMKedu/Rakennushaku"
+Documentation = "https://github.com/SeAMKedu/Rakennushaku/blob/main/docs/MENETELMAT_JA_LAHTEET.md"
+
+[project.optional-dependencies]
+test = ["pytest>=8", "httpx>=0.27"]
+
+[project.scripts]
+rakennushaku = "rakennushaku.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+rakennushaku = ["static/*", "static/vendor/leaflet/*", "static/vendor/leaflet/images/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

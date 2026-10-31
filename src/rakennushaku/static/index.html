@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rakennushaku</title>
+<link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="brand-name">Rakennushaku</span>
+    <span class="brand-sub">tilan rakennukset → Maatilan hybridienergialaskuri</span>
+  </div>
+  <div class="top-meta">
+    <span id="areaChip" class="chip" hidden></span>
+    <label class="year-pick" for="year">Tarkasteluvuosi
+      <select id="year"></select>
+    </label>
+    <span id="keyChip" class="chip"></span>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="panel" id="panel">
+
+    <section class="step" id="step1">
+      <h2><span class="num">1</span>Tila</h2>
+      <form id="ktForm" class="row">
+        <label for="kt" class="sr">Kiinteistötunnus</label>
+        <input id="kt" name="kt" placeholder="Kiinteistötunnus (KKK-RRR-YYYY-XXXX)" autocomplete="off" inputmode="numeric">
+        <button type="submit" class="btn primary">Hae</button>
+      </form>
+      <div class="row wrap">
+        <button type="button" class="btn" id="pickProperty">Valitse kiinteistö kartalta</button>
+        <button type="button" class="btn" id="pickCircle">Hae pisteen ympäriltä</button>
+      </div>
+      <p class="hint" id="step1Hint">Rakennukset haetaan Maanmittauslaitoksen Maastotietokannasta. Naapurikiinteistöjen rakennukset näkyvät harmaina.</p>
+    </section>
+
+    <section class="step" id="step2">
+      <h2><span class="num">2</span>Rakennukset laskentaan</h2>
+      <div class="row wrap">
+        <label for="mainUse" class="inline">Tuotantorakennusten käyttö
+          <select id="mainUse"></select>
+        </label>
+        <button type="button" class="btn small" id="addBuilding">Lisää rakennus kartalle</button>
+      </div>
+      <p class="hint">Klikkaa rakennusta kartalla tai listassa. Valitse lämmitettävät rakennukset ja ne, jotka kuluttavat sähköä samasta liittymästä (esim. kuivuri tai konehalli: <em>vain sähkö</em>). Pinta-ala on arvio (pohjan ala × kerrokset); korjaa se.</p>
+      <div id="buildingList" class="blist"><p class="empty">Hae ensin tila kohdassa 1.</p></div>
+    </section>
+
+    <section class="step" id="step3">
+      <h2><span class="num">3</span>Nykyinen energiankulutus</h2>
+      <p class="hint">Kulutus annetaan sähkömittareittain ja lämmityspiireittäin, koska tieto tulee laskuilta ja mittareilta, ei rakennuksittain. Vuoden pitää olla sama kuin tarkasteluvuosi.</p>
+      <div id="groupCards"></div>
+      <div class="row wrap">
+        <button type="button" class="btn small" id="addCircuit">Lisää lämmityspiiri</button>
+        <button type="button" class="btn small" id="addMeter">Lisää sähkömittari</button>
+      </div>
+    </section>
+
+    <section class="step" id="step4">
+      <h2><span class="num">4</span>Säätiedot</h2>
+      <p class="hint">Ulkolämpötila samalta vuodelta kuin kulutustiedot. Lähin FMI:n asema on yleensä paras; Open-Meteo antaa arvion suoraan tilan kohdalle.</p>
+      <div id="stationList" class="stations"><p class="empty">Asemat haetaan, kun tila on valittu.</p></div>
+      <div class="row wrap">
+        <label class="btn small file">Oma lämpötilatiedosto (CSV)
+          <input type="file" id="tempFile" accept=".csv,.txt,text/csv">
+        </label>
+      </div>
+      <div id="weatherSummary" class="summary" hidden></div>
+    </section>
+
+    <section class="step" id="stepPrice">
+      <h2><span class="num">5</span>Sähkön pörssihinta</h2>
+      <p class="hint">Suomen alueen tuntihinnat tarkasteluvuodelle laskurin <em>Hintahistoria</em>-välilehdelle (€/MWh, alv 0). Hinnat haetaan Sähkötin-palvelusta, joka välittää Nord Poolin dataa ei-kaupalliseen käyttöön.</p>
+      <div class="row wrap">
+        <button type="button" class="btn" id="fetchPrices">Hae vuoden hinnat</button>
+        <button type="button" class="btn small" id="fetchAllPrices">Hae kaikki laskurin vuodet 2023–2026</button>
+      </div>
+      <div id="priceSummary" class="summary" hidden></div>
+      <div class="row wrap" id="priceActions" hidden>
+        <button type="button" class="btn small" id="dlPrices">Lataa Hintahistoria-CSV</button>
+        <button type="button" class="btn small" id="copyPrices">Kopioi sarakkeet C–F</button>
+      </div>
+    </section>
+
+    <section class="step" id="step5">
+      <h2><span class="num">6</span>Energiaprofiili</h2>
+      <button type="button" class="btn primary wide" id="runModel">Laske tuntiprofiili</button>
+      <div id="checklist" class="checklist"></div>
+      <div class="row wrap">
+        <button type="button" class="btn small" id="saveProject">Tallenna projekti</button>
+        <label class="btn small file">Avaa projekti
+          <input type="file" id="loadProject" accept=".json,application/json">
+        </label>
+      </div>
+    </section>
+
+    <footer class="attrib"><a id="docsLink" class="docslink" href="/static/menetelmat.html" target="_blank" rel="noopener">Menetelmät, oletukset ja lähteet</a><span id="attrib" style="display:grid;gap:4px"></span></footer>
+  </aside>
+
+  <section class="stage">
+    <div id="map" class="map" aria-label="Kartta"></div>
+    <div id="modeBanner" class="mode-banner" hidden></div>
+    <section id="results" class="results" hidden aria-live="polite"></section>
+  </section>
+</main>
+
+<div id="toast" class="toast" role="status" hidden></div>
+<div id="tip" class="tip" hidden></div>
+
+<script src="/static/vendor/leaflet/leaflet.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

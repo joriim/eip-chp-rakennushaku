@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+message: "Jos käytät tätä ohjelmistoa, viittaa siihen alla olevilla tiedoilla. / If you use this software, please cite it as below."
+type: software
+title: "Rakennushaku: tilan rakennukset ja tunnittainen energiaprofiili Maatilan hybridienergialaskuriin"
+abstract: >-
+  Selaimessa toimiva sovellus, joka hakee maatilan rakennukset Maanmittauslaitoksen
+  avoimesta datasta, kalibroi rakennusten tunnittaisen lämmön- ja sähkönkulutuksen
+  tilan omaan kulutustietoon ja saman vuoden säähavaintoihin sekä vie tuloksen ja
+  pörssihinnat Maatilan hybridienergialaskuriin (8 760 h).
+authors:
+  - family-names: "Jääskeläinen"
+    given-names: "Miiro"
+    orcid: "https://orcid.org/0000-0002-0683-8352"
+    affiliation: "Seinäjoen ammattikorkeakoulu"
+  - family-names: "Karirinne"
+    given-names: "Suvi"
+    orcid: "https://orcid.org/0000-0003-1000-557X"
+    affiliation: "Seinäjoen ammattikorkeakoulu"
+version: "0.5.0"
+date-released: "2026-11-01"
+license: MIT
+repository-code: "https://github.com/SeAMKedu/Rakennushaku"
+url: "https://seamkedu.github.io/Rakennushaku/"
+keywords:
+  - maatila
+  - energia
+  - hybridienergia
+  - rakennukset
+  - lämmöntarve
+  - kalibrointi
+  - Maanmittauslaitos
+  - Ilmatieteen laitos
+  - pörssisähkö
+  - agricultural energy
+  - building energy

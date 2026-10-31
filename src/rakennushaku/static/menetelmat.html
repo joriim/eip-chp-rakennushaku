@@ -1,0 +1,845 @@
+<!doctype html><html lang="fi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rakennushaku – menetelmät ja lähteet</title><style>body{font:15px/1.55 'Public Sans',system-ui,sans-serif;max-width:860px;margin:2rem auto;padding:0 16px;color:#1d231f;background:#fff}h1,h2{color:#2e6b3f}table{border-collapse:collapse;font-size:13px;display:block;overflow-x:auto}th,td{border-bottom:1px solid #d9ded8;padding:4px 6px;text-align:left;vertical-align:top}pre{background:#eef1ec;padding:10px;overflow-x:auto}code{font-family:ui-monospace,Consolas,monospace}@media (prefers-color-scheme:dark){body{background:#141715;color:#e7ebe7}h1,h2{color:#6fb183}pre{background:#232824}th,td{border-color:#333a35}a{color:#9ccfab}}</style></head><body><h1 id="rakennushaku-menetelmät-ja-lähteet">Rakennushaku – menetelmät ja
+lähteet</h1>
+<p><strong>Versio:</strong> 0.5.0 · <strong>Päivitetty:</strong>
+31.10.2026<br />
+<strong>Tekijät:</strong> Miiro Jääskeläinen ja Suvi Karirinne,
+Seinäjoen ammattikorkeakoulu<br />
+<strong>Hanke:</strong> EIP CHP Energiaälykäs eteläpohjalainen maatila
+(EU:n osarahoittama)<br />
+<strong>Liittyy:</strong> Maatilan hybridienergialaskuri, versio 0.9.3
+[18]</p>
+<p>Tässä dokumentissa kuvataan, mistä Rakennushaun tiedot tulevat, miten
+niitä käsitellään ja mitkä mallin arvot perustuvat lähteeseen ja mitkä
+ovat tekijöiden omia oletuksia. Hakasulkeissa olevat numerot viittaavat
+lähdeluetteloon (luku 13).</p>
+<p><strong>Merkinnät:</strong></p>
+<ul>
+<li><strong>[n]</strong>: arvo tai menetelmä perustuu lähteeseen n.</li>
+<li><strong>Oma oletus</strong>: tekijöiden valitsema arvo, jota ei ole
+johdettu lähteestä eikä validoitu mitatulla tilalla. Oletusarvot
+määräävät ensisijaisesti tuntiprofiilin <em>muodon</em>; profiilin
+<em>taso</em> tulee tilan omasta kulutustiedosta (luku 8).</li>
+</ul>
+<h2 id="tarkoitus-ja-rajaus">1. Tarkoitus ja rajaus</h2>
+<p>Rakennushaku tuottaa tilan valituille rakennuksille 8 760 tunnin
+sähkö- ja lämpösarjan Maatilan hybridienergialaskurin <em>Oma
+kulutusdata</em> -välilehdelle [18] sekä halutessa saman vuoden
+pörssihinnat laskurin <em>Hintahistoria</em>-välilehdelle.</p>
+<p>Malli on alustavaan vertailuun tarkoitettu tilastollis-fysikaalinen
+yksinkertaistus. Se ei ole rakennusfysikaalinen simulointi. Se ei
+mallinna rakenteita, ilmanvaihdon ohjausta, aurinkokuormaa, kosteutta
+eikä eläinten lämmöntuottoa painon funktiona. Tulokset eivät korvaa
+mitattua tuntidataa. Kun mitattu tuntisarja on käytettävissä, malli
+käyttää mitatut tunnit sellaisenaan ja täydentää vain puuttuvat
+tunnit.</p>
+<h2 id="tietolähteet">2. Tietolähteet</h2>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Aineisto</th>
+<th>Käyttö sovelluksessa</th>
+<th>Rajapinta</th>
+<th>Käyttöehdot</th>
+<th>Viite</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>MML Maastotietokanta, rakennukset</td>
+<td>Rakennusten sijainti, pohja, kohdeluokka, kerrosluku</td>
+<td>OGC API Features, API-avain</td>
+<td>Avoin data, CC BY 4.0</td>
+<td>[1], [2]</td>
+</tr>
+<tr class="even">
+<td>MML kiinteistörekisterikartta, palstat</td>
+<td>Kiinteistön rajaus kiinteistötunnuksella tai pisteellä</td>
+<td>OGC API Features, API-avain</td>
+<td>Avoin data, CC BY 4.0</td>
+<td>[1], [3]</td>
+</tr>
+<tr class="odd">
+<td>MML osoitehaku</td>
+<td>Osoite → koordinaatit</td>
+<td>Geokoodauspalvelu, API-avain</td>
+<td>Avoin data, CC BY 4.0</td>
+<td>[1]</td>
+</tr>
+<tr class="even">
+<td>MML ortokuva ja taustakartta</td>
+<td>Taustakartta</td>
+<td>WMTS, API-avain</td>
+<td>Avoin data, CC BY 4.0</td>
+<td>[1]</td>
+</tr>
+<tr class="odd">
+<td>Ilmatieteen laitos, havaintoasemat ja tuntilämpötila</td>
+<td>Lähimmät asemat, ulkolämpötila (TA_PT1H_AVG)</td>
+<td>WFS (avoin data)</td>
+<td>CC BY 4.0</td>
+<td>[4], [5]</td>
+</tr>
+<tr class="even">
+<td>Open-Meteo, historiallinen säädata</td>
+<td>Ulkolämpötila tilan kohdalla, FMI-sarjan aukkojen paikkaus</td>
+<td>REST/JSON</td>
+<td>CC BY 4.0; ilmainen API ei-kaupalliseen käyttöön</td>
+<td>[6], [7], [8]</td>
+</tr>
+<tr class="odd">
+<td>Sähkötin (Pakastin Oy), Nord Poolin FI-alueen hinnat</td>
+<td>Pörssihinnat €/MWh alv 0</td>
+<td>CSV</td>
+<td>Ilmainen API ei-kaupalliseen käyttöön; Nord Pool omistaa datan</td>
+<td>[9], [10]</td>
+</tr>
+<tr class="even">
+<td>Fingrid Datahub</td>
+<td>Käyttäjän oma sähkönkulutus (tiedosto)</td>
+<td>Käyttäjä lataa itse</td>
+<td>Käyttäjän oma tieto</td>
+<td>[11]</td>
+</tr>
+<tr class="odd">
+<td>Käyttäjä</td>
+<td>Lämmitetty ala, käyttötarkoitus, polttoaineen määrä, tunnetut
+kulutukset</td>
+<td>–</td>
+<td>–</td>
+<td>–</td>
+</tr>
+</tbody>
+</table>
+<p>Sovellus ei jaa eikä sisällä ulkoista dataa. Kaikki tiedot haetaan
+käyttäjän omalle koneelle käyttäjän omaan tarkasteluun. Selainversiossa
+laskenta tehdään selaimessa; rajapinnoille lähtevät vain sijainti,
+kiinteistötunnus, osoitehakuteksti ja vuosi. Kulutustiedot eivät lähde
+koneelta.</p>
+<h2 id="aikakanta">3. Aikakanta</h2>
+<p>Kaikki sarjat ovat laskurin aikakannassa [18]: 8 760 tuntia
+kiinteässä EET-ajassa (UTC+2), rivi 1 = 1.1. klo 00–01, rivi 8 760 =
+31.12. klo 23–24. Kesäaikaa ei käytetä, ja karkausvuoden 29.2.
+poistetaan.</p>
+<p>Kesäaikaa käyttävä paikallinen aika muunnetaan UTC:ksi EU:n
+kesäaikasäännöllä: kesäaika alkaa maaliskuun viimeisenä sunnuntaina klo
+01.00 UTC ja päättyy lokakuun viimeisenä sunnuntaina klo 01.00 UTC [12].
+Syksyn toistuva tunti tunnistetaan siitä, että paikallinen aikaleima ei
+etene. Varttiarvot summataan energiana tunneiksi. Lämpötilat ja hinnat
+keskiarvoistetaan.</p>
+<h2 id="rakennusten-tunnistus">4. Rakennusten tunnistus</h2>
+<ul>
+<li><strong>Haku.</strong> Rakennukset haetaan Maastotietokannan
+<code>rakennus</code>-kokoelmasta kiinteistön ulkorajojen
+suorakaiteesta, jota on laajennettu 60 m (oma oletus). Ominaisuudet:
+<code>mtk_id</code>, <code>kohdeluokka</code>, <code>kerrosluku</code>,
+<code>alkupvm</code> ja geometria [2]. Sama haku ja luokitus ovat
+käytössä dkk-flightmanagerissa [17].</li>
+<li><strong>Kohdeluokat.</strong> Luokat 4221x asuinrakennus, 4222x
+liike- tai julkinen, 4223x loma-, 4224x teollinen, 4226x maatalous- tai
+varastorakennus ja 42270 muu. Ryhmittely noudattaa dkk-flightmanageria,
+jossa koodit on todettu aineistosta [17]. Luokan viimeinen numero kuvaa
+kerrosmäärää (1 = 1–2 krs, 2 = 3 krs tai enemmän) [2].</li>
+<li><strong>Kerrokset ja pinta-ala.</strong> Kerrosluku otetaan
+aineistosta. Jos se puuttuu, kerroksia on 1, tai 3 luokassa xxxx2 (oma
+oletus). Pohjan ala lasketaan geometriasta paikallisessa metrisessä
+tasoprojektiossa. Kiinteistön mittakaavassa virhe on alle 0,5 % (oma
+arvio). Lämmitetyn alan lähtöarvo on pohjan ala × kerrokset. Käyttäjän
+pitää korjata se, koska Maastotietokannassa ei ole kerrosalaa eikä
+lämmitystietoa.</li>
+<li><strong>Kiinteistöllä vai naapurilla.</strong> Rakennus katsotaan
+kiinteistölle kuuluvaksi, kun sen pohjan painopiste on kiinteistön
+sisällä tai enintään 5 m sen rajasta. Toleranssi on oma oletus:
+Maastotietokannan rakennukset ja kiinteistörajat eivät ole täsmälleen
+yhteensopivia.</li>
+<li><strong>Ehdotukset.</strong> Asuinrakennukset ja vähintään 600 m²:n
+maatalousrakennukset valitaan valmiiksi ehdotuksina (oma oletus).
+Käyttäjä tarkistaa valinnan.</li>
+</ul>
+<h2 id="säätiedot">5. Säätiedot</h2>
+<ul>
+<li><strong>Asemat.</strong> Lähimmät Ilmatieteen laitoksen
+havaintoasemat (verkko 121) haetaan WFS-tallennetulla kyselyllä
+<code>fmi::ef::stations</code> [5]. Etäisyys lasketaan
+isoympyräetäisyytenä (haversine) [16]. Asemat, joiden toiminta-aika ei
+kata tarkasteluvuotta, jätetään pois. Korkeusero ja rannikko- tai
+sisämaasijainti eivät vaikuta valintaan.</li>
+<li><strong>Tuntilämpötila.</strong> Parametri <code>TA_PT1H_AVG</code>
+(tunnin keskilämpötila) haetaan kyselyllä
+<code>fmi::observations::weather::hourly::simple</code> 28 vuorokauden
+jaksoissa. Palvelu sallii enintään 744 tuntia kyselyä kohti (todettu
+palvelun virheilmoituksesta 31.10.2026). Arvo kohdistetaan tuntiin,
+jonka <em>lopussa</em> se on aikaleimattu (oletus, tarkistettava FMI:n
+dokumentaatiosta).</li>
+<li><strong>Open-Meteo.</strong> Historiallinen säädata perustuu ECMWF:n
+ERA5-uudelleenanalyysiin [6], [7]. Hetkelliset tuntiarvot muutetaan
+tuntikeskiarvoiksi kahden peräkkäisen arvon keskiarvona (oma
+likiarvo).</li>
+<li><strong>Aukot.</strong> Enintään 6 tunnin aukot interpoloidaan
+lineaarisesti (oma oletus). FMI-sarjan pidemmät aukot paikataan
+Open-Meteon arvoilla tilan kohdalta. Paikattujen tuntien määrä
+näytetään.</li>
+<li><strong>Tarkistus.</strong> Testissä 31.10.2026 Seinäjoki Pelmaan
+(101486) vuoden 2025 sarja oli täydellinen (8 760 h, keskiarvo 6,2 °C).
+Open-Meteo antoi samaan pisteeseen keskiarvon 6,1 °C.</li>
+</ul>
+<h2 id="kulutustiedot-ja-muunnokset">6. Kulutustiedot ja muunnokset</h2>
+<p><strong>Tiedostot.</strong> Datahub- ja mittaritiedostot luetaan
+yleisellä CSV-jäsentimellä. Se tunnistaa erottimen, desimaalipilkun,
+aikaleimasarakkeen ja arvosarakkeen, aika-askeleen (5–60 min) sekä
+yksikön (Wh, kWh, MWh). Jäsennin on testattu tuotetuilla
+Datahub-muotoisilla tiedostoilla, mutta ei vielä aidolla
+Datahub-latauksella [11].</p>
+<p><strong>Polttoaineen muunnos toimitetuksi lämmöksi.</strong>
+Toimitettu lämpö = polttoaineen energia × kattilan hyötysuhde. Laskurin
+<em>Oma kulutusdata</em> odottaa lämmöntarvetta, ei polttoaine-energiaa
+[18].</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Yksikkö</th>
+<th>Energiasisältö</th>
+<th>Lähde</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>i-m³ haketta</td>
+<td>0,8 MWh/i-m³ (muokattava)</td>
+<td>Laskurin oletus (Ohjauspaneeli K35) [18]. Hakkeen energiasisältö
+riippuu kosteudesta ja puulajista; kokopuuhakkeelle ilmoitetaan
+käyttötilassa (kosteus 40–55 %) lämpöarvo 7–11 GJ/t [13]. Tarkemmat
+arvot: VTT Technology 258 [14].</td>
+</tr>
+<tr class="even">
+<td>MWh polttoainetta</td>
+<td>1 000 kWh/MWh</td>
+<td>Määritelmä</td>
+</tr>
+<tr class="odd">
+<td>t pellettiä</td>
+<td>4,7 MWh/t</td>
+<td>Yleinen likiarvo; ei tarkistettu lähteestä tässä versiossa. Tarkista
+[14] tai toimittajan tuoteseloste.</td>
+</tr>
+<tr class="even">
+<td>l kevyttä polttoöljyä</td>
+<td>10 kWh/l</td>
+<td>Yleinen likiarvo; ei tarkistettu lähteestä tässä versiossa. Tarkista
+[13], [14].</td>
+</tr>
+<tr class="odd">
+<td>Kattilan hyötysuhde</td>
+<td>0,85 (muokattava)</td>
+<td>Laskurin oletus (C26) [18]</td>
+</tr>
+</tbody>
+</table>
+<h2 id="rakennusmalli">7. Rakennusmalli</h2>
+<p>Jokaiselle rakennukselle lasketaan tunneittain sääosa W ja perusosa B
+sekä lämmölle että sähkölle:</p>
+<pre><code>lämpö_W,h = A · H · max(0, T_aset,h − ΔT_sis,h − T_ulko,h) / 1000      [kWh]
+lämpö_B,h = A · q_perus / 1000
+sähkö_B,h = A · e_perus · p_h · m_h / 1000
+sähkö_W,h = A · e_ilmanv · max(0, T_ulko,h − 12 °C) · p_h · m_h / 1000</code></pre>
+<p>A on lämmitetty ala (m²), H lämpöhäviökerroin ilmanvaihto mukaan
+lukien (W/m²K) ja ΔT_sis sisäisten lämmönlähteiden (eläimet, ihmiset,
+laitteet) aiheuttama lämpötilan nousu (K). p_h on vuorokausiprofiili,
+jonka keskiarvo on 1, ja m_h on käyttöaste (broilerierät,
+kuivurikausi).</p>
+<p>Rakenne on lämmitystarveluvun (astetunnit) ja energiasignatuurin
+yhdistelmä. Kulutus riippuu lineaarisesti ulkolämpötilasta
+tasapainolämpötilan T_aset − ΔT_sis alapuolella, ja lisäksi on säästä
+riippumaton perusosa [15]. Eläinten lämmöntuotto on jatkuva funktio
+eläinten koosta ja määrästä [19]. Mallissa sitä kuvaa yksinkertaistettu
+vakio tai lineaarinen kasvu, <em>ei</em> CIGR:n yhtälöt.</p>
+<p><strong>Käyttötyyppien oletusparametrit.</strong> Kaikki taulukon
+luvut ovat <strong>omia oletuksia</strong>, ellei sarakkeessa
+<em>Lähde</em> toisin mainita. Ne on valittu tuottamaan uskottava
+profiilin muoto, eikä niitä ole validoitu mitatuilla tiloilla. Ilman
+kulutustietoa niiden tuottama taso on epävarma: testiajossa kahden
+broilerihallin (yhteensä noin 3 500 m²) ja asuinrakennuksen oletustaso
+oli noin 850 MWh/v, eikä sitä ole verrattu mitattuun kulutukseen.</p>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Käyttötyyppi</th>
+<th>T_aset °C</th>
+<th>ΔT_sis K</th>
+<th>H W/m²K</th>
+<th>q_perus W/m²</th>
+<th>e_perus W/m²</th>
+<th>e_ilmanv W/m²K</th>
+<th>Profiili</th>
+<th>Lähde</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Broilerikasvattamo</td>
+<td>30 → 20 (erä)</td>
+<td>0 → 15 (erä)</td>
+<td>2,2</td>
+<td>0</td>
+<td>3</td>
+<td>0,25</td>
+<td>tasainen, erärytmi</td>
+<td>T_aset [20], muut oma oletus</td>
+</tr>
+<tr class="even">
+<td>Lihasikala</td>
+<td>19</td>
+<td>11</td>
+<td>1,6</td>
+<td>0</td>
+<td>2,5</td>
+<td>0,3</td>
+<td>tasainen</td>
+<td>Oma oletus</td>
+</tr>
+<tr class="odd">
+<td>Emakko- tai porsastuotanto</td>
+<td>22</td>
+<td>7</td>
+<td>1,6</td>
+<td>2</td>
+<td>3,5</td>
+<td>0,3</td>
+<td>tasainen</td>
+<td>Oma oletus</td>
+</tr>
+<tr class="even">
+<td>Navetta (lypsykarja)</td>
+<td>10</td>
+<td>9</td>
+<td>1</td>
+<td>3</td>
+<td>4</td>
+<td>0,2</td>
+<td>lypsy</td>
+<td>Oma oletus</td>
+</tr>
+<tr class="odd">
+<td>Asuinrakennus</td>
+<td>21</td>
+<td>3</td>
+<td>1,3</td>
+<td>3</td>
+<td>4</td>
+<td>0</td>
+<td>asuinrakennus</td>
+<td>Oma oletus</td>
+</tr>
+<tr class="even">
+<td>Toimisto tai sosiaalitila</td>
+<td>21</td>
+<td>3</td>
+<td>1,3</td>
+<td>1,5</td>
+<td>3</td>
+<td>0</td>
+<td>arkipäivä</td>
+<td>Oma oletus</td>
+</tr>
+<tr class="odd">
+<td>Konehalli tai korjaamo</td>
+<td>12</td>
+<td>1</td>
+<td>0,9</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+<td>arkipäivä</td>
+<td>Oma oletus</td>
+</tr>
+<tr class="even">
+<td>Viljankuivuri (elo–lokakuu)</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>60</td>
+<td>12</td>
+<td>0</td>
+<td>tasainen, kausi 1.8.–15.10.</td>
+<td>Oma oletus</td>
+</tr>
+<tr class="odd">
+<td>Muu lämmitetty tila</td>
+<td>17</td>
+<td>2</td>
+<td>1</td>
+<td>0</td>
+<td>1,5</td>
+<td>0</td>
+<td>tasainen</td>
+<td>Oma oletus</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Broilerikasvattamon erärytmi.</strong></p>
+<ul>
+<li><strong>Asetuslämpö</strong> on 30 °C sisäänotossa ja laskee
+lineaarisesti 20 °C:een 27 vuorokauden ikään mennessä. Sen jälkeen
+asetus on 20 °C. Arvot ovat Aviagenin Ross-käsikirjan koko hallin
+lämmityksen suositukset (taulukko 2.4 ja keskeinen hoitoaikataulu) [20].
+Käsikirjan taulukko on painon mukainen; lineaarinen ikäapproksimaatio on
+oma yksinkertaistus.</li>
+<li><strong>Lintujen lämmöntuotto</strong> ΔT_sis kasvaa 0 → 15 K erän
+aikana muodolla (vrk/erä)^1,3 (oma oletus).</li>
+<li><strong>Oletusrytmi:</strong> 35 vrk:n erä, 12 vrk:n tyhjä jakso, 2
+vrk:n esilämmitys 30 °C:ssa ja tyhjänä +8 °C:n jäätymisenesto (omat
+oletukset, käyttäjä muokkaa rytmiä). Sähkön käyttöaste tyhjänä on 0,15
+ja esilämmityksessä 0,4 (oma oletus).</li>
+<li><strong>Hallien vaiheistus:</strong> jos usealla hallilla on sama
+sisäänottopäivä, huiput osuvat päällekkäin. Käyttäjän kannattaa antaa
+halleille todellinen vaiheistus.</li>
+</ul>
+<p><strong>Viljankuivuri.</strong> Prosessilämpö ja sähkö kuluvat vain
+kaudella 1.8.–15.10. (vuoden päivät 212–287), eivätkä riipu säästä (omat
+oletukset).</p>
+<p><strong>Vuorokausiprofiilit.</strong> Asuinrakennuksen aamu- ja
+iltahuiput, navetan lypsyhuiput (noin klo 5–8 ja 16–19) sekä arkipäivän
+työaika (klo 7–16, viikonloppuna perustaso) ovat omia oletuksia.</p>
+<p><strong>Sähkö vain tai lämpö vain.</strong> Rakennuksen voi ottaa
+mukaan vain sähköön, esim. konehalli tai kuivuri samasta liittymästä.
+Muuten liittymän mitattu kulutus kohdistuisi kokonaan lämmitettyjen
+rakennusten profiilille.</p>
+<h2 id="kalibrointi-tilan-kulutustietoon">8. Kalibrointi tilan
+kulutustietoon</h2>
+<p>Kalibrointi tehdään lämmityspiireittäin ja sähkömittareittain, koska
+kulutustieto tulee laskuilta ja mittareilta, ei rakennuksittain.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Kulutustieto</th>
+<th>Menetelmä</th>
+<th>Mitä tieto ratkaisee</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Ei tietoa</td>
+<td>Mallin oletus</td>
+<td>Ei mitään; tulos ei kuvaa tilaa</td>
+</tr>
+<tr class="even">
+<td>Vuosisumma</td>
+<td>Yksi skaalauskerroin k = E / Σ(W+B)</td>
+<td>Vuoden taso. Muoto, sää- ja perusosan suhde sekä huippu tulevat
+mallista.</td>
+</tr>
+<tr class="odd">
+<td>Vuosisumma + säästä riippumaton osuus s</td>
+<td>W skaalataan summaan (1−s)·E ja B summaan s·E</td>
+<td>Taso ja käyttäjän antama sää- ja perusosan suhde</td>
+</tr>
+<tr class="even">
+<td>Kuukausisummat (≥ 3 kk)</td>
+<td>Pienimmän neliösumman sovitus E_kk ≈ a·W_kk + b·B_kk, a, b ≥ 0
+[21]</td>
+<td>Taso sekä sää- ja perusosan suhde</td>
+</tr>
+<tr class="odd">
+<td>Tuntisarja</td>
+<td>Mitatut tunnit sellaisenaan; a, b sovitetaan mitattuihin tunteihin
+ja täydentävät puuttuvat</td>
+<td>Kaikki mitatuilta tunneilta</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Sopivuus.</strong> Kuukausi- ja tuntisovituksen sopivuus
+raportoidaan CV(RMSE)-lukuna. Raja-arvot ovat ASHRAE Guideline 14:n
+kalibrointikriteerit: kuukausitasolla 15 % ja tuntitasolla 30 % [22],
+[23]. Kriteerit on laadittu rakennusten energiamallien kalibrointiin. Ne
+ovat tässä suuntaa antavia, koska malli on yksinkertainen ja maatilan
+kuormat (erät, kuivaus) poikkeavat rakennusten tavallisesta
+kulutuksesta.</li>
+<li><strong>Tunnettu kulutus rakennukselle (optio).</strong> Kun
+rakennukselle annetaan tunnettu vuosikulutus (oma kattila tai
+alamittari), sen tuntiprofiili skaalataan tähän summaan. Rakennusten
+tunnettu kulutus vähennetään piirin tai mittarin tiedosta: vuosi- ja
+kuukausisummista summana, tuntisarjasta tunneittain. Loppu kalibroidaan
+muille rakennuksille. Negatiiviset erotukset rajataan nollaan ja niistä
+varoitetaan.</li>
+<li><strong>Jako rakennuksille.</strong> Piirin tunnittainen
+kokonaismäärä jaetaan rakennuksille niiden mallinnettujen osuuksien
+mukaan. Rakennuskohtaiset luvut ovat siksi arvioita, paitsi tunnetun
+kulutuksen rakennuksille.</li>
+<li><strong>Kattilan teho (optio).</strong> Kun kattilan teho annetaan,
+piirin tunnittaista lämpötehoa verrataan siihen ja ylittävät tunnit
+raportoidaan. Laskuri raportoi vastaavan tilanteen lämmitysvajeena
+(K13–L13) [18].</li>
+</ul>
+<h2 id="pörssihinnat">9. Pörssihinnat</h2>
+<ul>
+<li><strong>Lähde.</strong> Hinnat haetaan Sähkötin-palvelusta, joka
+välittää Nord Poolin vuorokausimarkkinan FI-alueen hinnat yksikössä
+€/MWh ilman arvonlisäveroa ja UTC-aikaleimoilla [9].</li>
+<li><strong>15 minuutin markkina-aikayksikkö.</strong> Eurooppalainen
+vuorokausimarkkina siirtyi 15 minuutin markkina-aikayksikköön 30.9.2025
+[10]. Sähkötin palauttaa siitä alkaenkin tuntiarvoja, jotka ovat tunnin
+varttihintojen keskiarvoja (todettu 31.10.2026). Mahdolliset varttiarvot
+keskiarvoistetaan tunneiksi, kuten laskurin ohje edellyttää [18].</li>
+<li><strong>Tarkistus.</strong> Vuoden 2025 sarjassa on 459 negatiivista
+tuntia, mikä vastaa laskurin omaa huomautusta [18]. Vuosi 2024 sisältää
+8 784 tuntia, joista karkauspäivä poistetaan.</li>
+<li><strong>Käyttöehdot.</strong> Sähkötin ilmoittaa ilmaisen rajapinnan
+olevan ei-kaupalliseen käyttöön ja Nord Poolin omistavan hintadatan [9].
+Sovellus ei siksi sisällä hintoja, vaan käyttäjä hakee ne omaan
+tarkasteluunsa. Selaimesta suoraan haettavissa olevista lähteistä vain
+Sähkötin salli kutsut (CORS); Elering ja Energy-Charts eivät sallineet
+(todettu 31.10.2026).</li>
+</ul>
+<h2 id="viennit-laskuriin">10. Viennit laskuriin</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Tiedosto</th>
+<th>Sarakkeet</th>
+<th>Laskurissa</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>oma_kulutusdata_&lt;vuosi&gt;.csv</code></td>
+<td>Tunti, Kk, Pv, Klo, Sähkö kWh/h, Lämpö kWh/h, Ulkolämpötila °C,
+(Pörssihinta €/MWh)</td>
+<td>E–F → <em>Oma kulutusdata</em> E2, D4 = Oma data; H →
+<em>Hintahistoria</em>, vuoden sarake</td>
+</tr>
+<tr class="even">
+<td><code>hintahistoria_2023-2026.csv</code></td>
+<td>Tunti, Aika (EET), 2023, 2024, 2025, 2026</td>
+<td>C–F → <em>Hintahistoria</em> C2</td>
+</tr>
+</tbody>
+</table>
+<p>CSV-tiedostoissa on puolipiste-erotin, desimaalipilkku ja UTF-8 BOM
+suomenkielistä Exceliä varten. Laskurin oma aurinkosähkö- ja
+lämpöpumppulaskenta käyttää vielä laskurin esimerkkivuotta [18].
+Ulkolämpötila viedään sarakkeeksi G myöhempää käyttöä varten.</p>
+<h2 id="toteutus-ja-testaus">11. Toteutus ja testaus</h2>
+<ul>
+<li><strong>Kaksi toteutusta.</strong> Sovellus on Python-palvelin
+(FastAPI) ja yhden tiedoston selainversio. Selainversion
+laskentamoottori (<code>web/engine.js</code>) antaa samat tulokset kuin
+Python-malli; <code>web/check_equivalence.py</code> vertaa niitä
+kahdeksassa skenaariossa (ero 0,000 kWh/h).</li>
+<li><strong>Automaattiset testit.</strong> 36 testiä kattavat
+aikakannan, kesäajan, tiedostojen jäsennyksen, rajapintavastausten
+käsittelyn, kalibrointitavat, optiot ja vientimuodot
+(<code>pytest</code>). GitHub Actions ajaa testit ja
+vastaavuustarkistuksen jokaisesta muutoksesta.</li>
+<li><strong>Live-testit 31.10.2026.</strong> MML (osoitehaku,
+kiinteistöhaku pisteellä ja tunnuksella, rakennukset, ortokuva), FMI
+(asemat, vuoden 2025 tuntisarja), Open-Meteo ja Sähkötin (2023–2026)
+testattiin oikeilla rajapinnoilla.</li>
+<li><strong>Kartta:</strong> Leaflet 1.9.4 [24].</li>
+</ul>
+<h2 id="kriittinen-arvio">12. Kriittinen arvio</h2>
+<p><strong>Korjattu versiossa 0.4.0</strong></p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Havainto</th>
+<th>Vaikutus</th>
+<th>Korjaus</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Lämmittämättömien rakennusten sähkö (kuivuri, konehalli) kohdistui
+lämmitettyjen rakennusten profiilille</td>
+<td>Väärä sähköprofiili mittaritason datalla</td>
+<td>Rakennus voidaan ottaa mukaan vain sähköön tai vain lämpöön</td>
+</tr>
+<tr class="even">
+<td>Tyhjän broilerihallin lämmitys oli nolla</td>
+<td>Lämmöntarve aliarvioitui erien välissä talvella</td>
+<td>+8 °C jäätymisenesto (oma oletus)</td>
+</tr>
+<tr class="odd">
+<td>Broilerihallin asetuslämpö oli oma oletus 32 → 21 °C / 35 vrk</td>
+<td>Profiilin muoto</td>
+<td>Aviagenin suositus 30 → 20 °C / 27 vrk [20]</td>
+</tr>
+<tr class="even">
+<td>Viljankuivuria ei voinut kuvata</td>
+<td>Syyskuorma levisi koko vuodelle</td>
+<td>Käyttötyyppi <em>Viljankuivuri</em> kausimaskilla</td>
+</tr>
+<tr class="odd">
+<td>Vuosisumma ei kerro sää- ja perusosan suhdetta</td>
+<td>Kesä–talvi-suhde mallin varassa</td>
+<td>Optio <em>säästä riippumaton osuus</em></td>
+</tr>
+<tr class="even">
+<td>Rakennusten jako yhteisellä kattilalla oli mallin varassa</td>
+<td>Rakennuskohtaiset luvut</td>
+<td>Optio <em>tunnettu kulutus</em> rakennukselle</td>
+</tr>
+<tr class="odd">
+<td>Huipputehoa ei verrattu kattilaan</td>
+<td>Liian piikikäs profiili jäi huomaamatta</td>
+<td>Optio <em>kattilan teho</em> ja varoitus</td>
+</tr>
+<tr class="even">
+<td>Python- ja selainversiossa oli eri sääntö rakennuksen kuulumiselle
+kiinteistölle</td>
+<td>Eri tulos samalla tilalla</td>
+<td>Yhteinen painopistesääntö</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Avoimet, vakavuusjärjestyksessä</strong></p>
+<ol type="1">
+<li><strong>Oletusparametreja ei ole validoitu</strong> (suuri). H,
+ΔT_sis, q_perus, sähkön ominaiskulutukset ja profiilit ovat omia
+oletuksia. Ilman kulutustietoa tulos on vain suuntaa antava. Suositus:
+kalibroi oletukset 2–3 pilottitilan mitatulla tuntilämmöllä ja
+-sähköllä, ja johda eläinten lämmöntuotto CIGR:n yhtälöistä [19].</li>
+<li><strong>Laskurin oma sää- ja PV-vuosi</strong> (suuri). Laskurin
+lämpöpumpun COP ja aurinkosähkö käyttävät laskurin esimerkkivuotta [18],
+vaikka kulutus mallinnetaan tarkasteluvuoden säällä. Suositus: lisää
+laskuriin ulkolämpötilan ja PV-tuoton sarakkeet <em>Oma kulutusdata</em>
+-välilehdelle.</li>
+<li><strong>Aitoa Datahub-tiedostoa ei ole testattu</strong>
+(keskisuuri). Jäsennin on testattu tuotetuilla tiedostoilla. Suositus:
+testaa yhdellä oikealla latauksella.</li>
+<li><strong>Polttoaineen määrän epävarmuus</strong> (keskisuuri). Ostot
+eivät ole sama kuin poltto (varasto), ja hakkeen energiasisältö
+vaihtelee kosteuden mukaan. Pelletin ja öljyn energiasisällöt ovat
+tarkistamattomia likiarvoja.</li>
+<li><strong>FMI:n tuntiarvon aikaleiman tulkinta</strong> (pieni).
+Tunnin loppuun kohdistus on oletus. Väärä tulkinta siirtää lämpötilaa
+tunnilla.</li>
+<li><strong>Aseman valinta</strong> (pieni). Valinta tehdään pelkän
+etäisyyden perusteella, eikä korkeutta tai rannikkovaikutusta oteta
+huomioon.</li>
+<li><strong>Mittausdatan laatu</strong> (pieni). Tuntisarjasta ei
+tunnisteta katkoja, nollia eikä piikkejä.</li>
+<li><strong>CSV-muoto</strong> (pieni). Puolipiste ja desimaalipilkku
+sopivat suomenkieliseen Exceliin. Muulla kieliasetuksella tiedosto pitää
+tuoda Tiedot → Tekstistä/CSV:stä -toiminnolla.</li>
+<li><strong>Kesken oleva vuosi</strong> (pieni). Kuluvan vuoden säädata
+ei ole täydellinen, joten mallia ei voi ajaa ennen vuoden loppua. Hinnat
+voi silti hakea.</li>
+<li><strong>API-avain ja käyttöehdot julkisessa palvelussa</strong>
+(pieni). Selainversiossa jokainen käyttäjä tarvitsee oman MML-avaimen.
+Jos SeAMK tarjoaa sovellusta palveluna, Open-Meteon ja Sähkötinin
+ei-kaupallisen käytön ehdot on tarkistettava.</li>
+</ol>
+<h2 id="lähdeluettelo">13. Lähdeluettelo</h2>
+<p>Verkkosivujen sisältö ja rajapintojen toiminta on tarkistettu
+31.10.2026, ellei toisin mainita.</p>
+<p><strong>[1] Maanmittauslaitos. Avoimien aineistojen lisenssi (CC BY
+4.0) ja rajapintapalvelut.</strong><br />
+<a target="_blank" rel="noopener" href="https://www.maanmittauslaitos.fi/en/opendata-licence-cc40"
+class="uri">https://www.maanmittauslaitos.fi/en/opendata-licence-cc40</a>
+· API-avaimen ohje: <a
+href="https://www.maanmittauslaitos.fi/rajapinnat/api-avaimen-ohje"
+class="uri">https://www.maanmittauslaitos.fi/rajapinnat/api-avaimen-ohje</a><br />
+Käyttö: MML-aineistojen käyttöehdot ja API-avain. Lähdemaininta:
+“Sisältää Maanmittauslaitoksen Maastotietokannan ja
+kiinteistörekisterikartan aineistoa”.</p>
+<p><strong>[2] Maanmittauslaitos. Technical description – Topographic
+Database (OGC API Features).</strong><br />
+<a target="_blank" rel="noopener" href="https://maanmittauslaitos.fi/en/node/13248"
+class="uri">https://maanmittauslaitos.fi/en/node/13248</a> · Rajapinta:
+<a
+href="https://avoin-paikkatieto.maanmittauslaitos.fi/maastotiedot/features/v1/"
+class="uri">https://avoin-paikkatieto.maanmittauslaitos.fi/maastotiedot/features/v1/</a><br />
+Käyttö: rakennusten haku; CRS84 oletuskoordinaatistona;
+<code>kohdeluokka</code>-ominaisuus (esim. 42211 asuinrakennus 1–2
+krs).</p>
+<p><strong>[3] Maanmittauslaitos. Kiinteistötietojen avoin kyselypalvelu
+(OGC API Features), kokoelma PalstanSijaintitiedot.</strong><br />
+<a
+href="https://avoin-paikkatieto.maanmittauslaitos.fi/kiinteisto-avoin/simple-features/v3/"
+class="uri">https://avoin-paikkatieto.maanmittauslaitos.fi/kiinteisto-avoin/simple-features/v3/</a><br />
+Käyttö: kiinteistön palstat kiinteistötunnuksella ja pisteellä.</p>
+<p><strong>[4] Ilmatieteen laitos. Avoimen datan lisenssi (CC BY
+4.0).</strong><br />
+<a target="_blank" rel="noopener" href="https://en.ilmatieteenlaitos.fi/open-data-licence"
+class="uri">https://en.ilmatieteenlaitos.fi/open-data-licence</a><br />
+Käyttö: havaintoasemien ja tuntilämpötilojen käyttöehdot.</p>
+<p><strong>[5] Ilmatieteen laitos. Avoimen datan
+WFS-palvelu.</strong><br />
+<a target="_blank" rel="noopener" href="https://opendata.fmi.fi/wfs"
+class="uri">https://opendata.fmi.fi/wfs</a><br />
+Käyttö: tallennetut kyselyt <code>fmi::ef::stations</code> (verkko 121)
+ja <code>fmi::observations::weather::hourly::simple</code> (parametri
+TA_PT1H_AVG); enintään 744 tuntia kyselyä kohti.</p>
+<p><strong>[6] Hersbach, H., Bell, B., Berrisford, P., et al. (2020).
+The ERA5 global reanalysis. Quarterly Journal of the Royal
+Meteorological Society, 146(730), 1999–2049.</strong><br />
+<a target="_blank" rel="noopener" href="https://doi.org/10.1002/qj.3803"
+class="uri">https://doi.org/10.1002/qj.3803</a><br />
+Käyttö: Open-Meteon historiallisen säädatan taustalla oleva
+uudelleenanalyysi.</p>
+<p><strong>[7] Zippenfenig, P. (2023). Open-Meteo.com Weather API.
+Zenodo.</strong><br />
+<a target="_blank" rel="noopener" href="https://doi.org/10.5281/zenodo.7970649"
+class="uri">https://doi.org/10.5281/zenodo.7970649</a> · <a
+href="https://open-meteo.com/en/docs/historical-weather-api"
+class="uri">https://open-meteo.com/en/docs/historical-weather-api</a><br />
+Käyttö: ulkolämpötila tilan kohdalla ja FMI-sarjan aukkojen
+paikkaus.</p>
+<p><strong>[8] Open-Meteo. Licence and terms.</strong><br />
+<a target="_blank" rel="noopener" href="https://open-meteo.com/en/licence"
+class="uri">https://open-meteo.com/en/licence</a><br />
+Käyttö: data CC BY 4.0; ilmainen API ei-kaupalliseen käyttöön. (Sivua ei
+voitu avata tarkistuksessa; ehdot on tarkistettava ennen julkista
+palvelua.)</p>
+<p><strong>[9] Pakastin Oy. Sähkötin – API.</strong><br />
+<a target="_blank" rel="noopener" href="https://sahkotin.fi/api"
+class="uri">https://sahkotin.fi/api</a> · Hintasarja: <a
+href="https://sahkotin.fi/prices.csv"
+class="uri">https://sahkotin.fi/prices.csv</a><br />
+Käyttö: FI-alueen pörssihinnat €/MWh alv 0. Palvelu ilmoittaa ilmaisen
+API:n olevan ei-kaupalliseen käyttöön ja Nord Poolin omistavan
+hintadatan (kuvaus laskurin ohjeen mukaan [18]).</p>
+<p><strong>[10] Nord Pool. Transition to 15-minute Market Time Unit
+(MTU).</strong><br />
+<a
+href="https://www.nordpoolgroup.com/en/trading/transition-to-15-minute-market-time-unit-mtu/"
+class="uri">https://www.nordpoolgroup.com/en/trading/transition-to-15-minute-market-time-unit-mtu/</a><br />
+Käyttö: eurooppalaisen vuorokausimarkkinan 15 minuutin
+markkina-aikayksikön käyttöönotto 30.9.2025.</p>
+<p><strong>[11] Fingrid Datahub Oy. Datahubin
+asiakasportaali.</strong><br />
+<a target="_blank" rel="noopener" href="https://oma.datahub.fi/"
+class="uri">https://oma.datahub.fi/</a><br />
+Käyttö: käyttäjän oman sähkönkulutuksen tuntidata.</p>
+<p><strong>[12] Euroopan parlamentin ja neuvoston direktiivi 2000/84/EY
+kesäaikasäännöksistä.</strong><br />
+<a
+href="https://eur-lex.europa.eu/legal-content/FI/TXT/?uri=CELEX:32000L0084"
+class="uri">https://eur-lex.europa.eu/legal-content/FI/TXT/?uri=CELEX:32000L0084</a><br />
+Käyttö: kesäajan alkamis- ja päättymissääntö paikallisen ajan
+muunnoksessa.</p>
+<p><strong>[13] Tilastokeskus (2024). Polttoaineluokitus 2024 ja
+polttoainenimikkeiden määritelmät, 2.2.2024.</strong><br />
+<a
+href="https://www2.stat.fi/media/uploads/tup/khkinv/polttoaineluokitus_2024__maaritelmat.pdf"
+class="uri">https://www2.stat.fi/media/uploads/tup/khkinv/polttoaineluokitus_2024__maaritelmat.pdf</a><br />
+Käyttö: kokopuu- tai rankahakkeen tyypilliset ominaisuudet käyttötilassa
+(kosteus 40–55 %, lämpöarvo 7–11 GJ/t).</p>
+<p><strong>[14] Alakangas, E., Hurskainen, M., Laatikainen-Luntama, J.
+&amp; Korhonen, J. (2016). Suomessa käytettävien polttoaineiden
+ominaisuuksia. VTT Technology 258. Espoo: VTT.</strong><br />
+ISBN 978-951-38-8419-2 · <a
+href="https://sarjaweb.vtt.fi/pdf/technology/2016/T258.pdf"
+class="uri">https://sarjaweb.vtt.fi/pdf/technology/2016/T258.pdf</a><br />
+Käyttö: polttoaineiden energiasisältöjen taustalähde. Lukuja ei ole
+poimittu tähän versioon.</p>
+<p><strong>[15] Fels, M. F. (1986). PRISM: An introduction. Energy and
+Buildings, 9(1–2), 5–18.</strong><br />
+<a target="_blank" rel="noopener" href="https://doi.org/10.1016/0378-7788(86)90003-4"
+class="uri">https://doi.org/10.1016/0378-7788(86)90003-4</a><br />
+Käyttö: lämmitystarveluku- ja energiasignatuurimallin periaate (kulutus
+= perusosa + kerroin × lämmitystarve tasapainolämpötilan
+alapuolella).</p>
+<p><strong>[16] Sinnott, R. W. (1984). Virtues of the Haversine. Sky and
+Telescope, 68(2), 159.</strong><br />
+Käyttö: isoympyräetäisyys säähavaintoasemille.</p>
+<p><strong>[17] Seinäjoen ammattikorkeakoulu. dkk-flightmanager (versio
+1.11.1).</strong><br />
+<a target="_blank" rel="noopener" href="https://github.com/SeAMKedu/dkk-flightmanager"
+class="uri">https://github.com/SeAMKedu/dkk-flightmanager</a><br />
+Käyttö: MML-rakennushaun rajapinta, kohdeluokkien ryhmittely ja
+kiinteistötunnuksen käsittely.</p>
+<p><strong>[18] Karirinne, S. &amp; Jääskeläinen, M. (2026). Maatilan
+hybridienergialaskuri, versio 0.9.3, ja Excel-mallin käyttöohje.
+Seinäjoen ammattikorkeakoulu, EIP CHP Energiaälykäs eteläpohjalainen
+maatila. CC BY 4.0.</strong><br />
+Käyttö: aikakanta, <em>Oma kulutusdata</em>- ja
+<em>Hintahistoria</em>-välilehtien rakenne, hakkeen energiatiheys (K35),
+kattilan hyötysuhde (C26), pörssihintojen käsittely.</p>
+<p><strong>[19] CIGR (2002). Climatization of animal houses: Heat and
+moisture production at animal and house levels. Pedersen, S. &amp;
+Sällvik, K. (toim.). CIGR Section II, 4th Report of Working Group.
+Research Centre Bygholm, Danish Institute of Agricultural Sciences,
+Horsens.</strong><br />
+Raportin olemassaolo ja aihe vahvistettu lähteestä: Aarnink, A. (2018).
+Heat and moisture production in growing-finishing pigs and broilers.
+<em>Agricultural Engineering International: CIGR Journal</em>, Special
+Issue, Article 4781, <a
+href="https://cigrjournal.org/index.php/Ejounral/article/view/4781"
+class="uri">https://cigrjournal.org/index.php/Ejounral/article/view/4781</a><br />
+Käyttö: taustalähde eläinten lämmöntuotolle; mallin kertoimia ei ole
+johdettu tästä lähteestä (ks. luku 12).</p>
+<p><strong>[20] Aviagen (2025). Ross Broiler Management
+Handbook.</strong><br />
+<a
+href="https://aviagen.com/assets/Tech_Center/Ross_Broiler/Aviagen-ROSS-Broiler-Handbook-EN.pdf"
+class="uri">https://aviagen.com/assets/Tech_Center/Ross_Broiler/Aviagen-ROSS-Broiler-Handbook-EN.pdf</a><br />
+Käyttö: broilerihallin asetuslämpö: koko hallin lämmityksessä 30 °C
+sisäänotossa (Key Management Timetable), 20 °C painon noin 1,5 kg
+jälkeen (taulukko 2.4) ja 27 vuorokauden iän jälkeen 20 °C.</p>
+<p><strong>[21] Lawson, C. L. &amp; Hanson, R. J. (1974). Solving Least
+Squares Problems. Englewood Cliffs: Prentice-Hall.</strong><br />
+Käyttö: ei-negatiivisten kertoimien pienimmän neliösumman sovitus (tässä
+kahden muuttujan tapaus).</p>
+<p><strong>[22] ASHRAE (2014). Guideline 14-2014: Measurement of Energy,
+Demand, and Water Savings. Atlanta: ASHRAE.</strong><br />
+Käyttö: kalibroinnin CV(RMSE)-kriteerit (kuukausi 15 %, tunti 30 %).</p>
+<p><strong>[23] Goldwasser, D., Ball, B., Farthing, A., Frank, S. &amp;
+Im, P. (2018). Advances in Calibration of Building Energy Models to Time
+Series Data. NREL/CP-5500-70865. 2018 ASHRAE Building Performance
+Analysis Conference and SimBuild.</strong><br />
+<a target="_blank" rel="noopener" href="https://www.nrel.gov/docs/fy19osti/70865.pdf"
+class="uri">https://www.nrel.gov/docs/fy19osti/70865.pdf</a><br />
+Käyttö: Guideline 14:n tuntitason kriteerien vahvistus (CV(RMSE) &lt; 30
+%, NMBE &lt; 10 %).</p>
+<p><strong>[24] Agafonkin, V. ym. Leaflet 1.9.4.
+BSD-2-Clause.</strong><br />
+<a target="_blank" rel="noopener" href="https://leafletjs.com/"
+class="uri">https://leafletjs.com/</a><br />
+Käyttö: kartan esitys (sisältyy sovellukseen).</p>
+<h2 id="tekoälyn-käyttö">14. Tekoälyn käyttö</h2>
+<p>Sovelluksen koodin, testien ja tämän dokumentin laatimisessa on
+käytetty tekoälyä tekijöiden työvälineenä. Lähteet on haettu ja niiden
+keskeiset tiedot tarkistettu verkosta 31.10.2026. Lähteet, joiden
+sisältöä ei voitu tarkistaa, on merkitty erikseen. Tekoälyn käyttö ei
+itsessään varmista laskennan oikeellisuutta: tarkistukset, lähtötiedot
+ja mallin rajaukset ratkaisevat tulosten käyttökelpoisuuden.</p>
+</body></html>
