@@ -152,7 +152,7 @@
       } else {
         lyr = L.geoJSON(b.geometry, { style: () => style });
       }
-      lyr.bindTooltip(`${esc(b.name)}<br>${esc(b.class_label)}${b.footprint_m2 ? ` · ${fmt(b.footprint_m2)} m²` : ""}`, { className: "bt", sticky: true });
+      lyr.bindTooltip(`${esc(b.name)}<br>${esc(b.class_label)}${b.footprint_m2 ? `<br>${fmt(b.footprint_m2)} m²` : ""}`, { className: "bt", sticky: true });
       lyr.on("click", (ev) => { L.DomEvent.stopPropagation(ev); toggleHeated(b.id); focusBuilding(b.id); });
       lyr.addTo(layers.buildings);
       shapes[b.id] = lyr;
@@ -166,7 +166,7 @@
     drawArea();
     if (layers.area) map.fitBounds(layers.area.getBounds(), { padding: [30, 30], maxZoom: 17 });
     const chip = $("#areaChip");
-    chip.textContent = a.kind === "property" ? `Kiinteistö ${a.display} · ${fmt(a.area_ha, 1)} ha` : a.display;
+    chip.textContent = a.kind === "property" ? `Kiinteistö ${a.display}, ${fmt(a.area_ha, 1)} ha` : a.display;
     chip.hidden = false;
     loadStations();
   }
@@ -258,7 +258,7 @@
       return;
     }
     host.innerHTML = state.buildings.map((b) => {
-      const meta = [b.class_label, b.footprint_m2 ? `pohja ${fmt(b.footprint_m2)} m² × ${b.floors} krs` : "pistekohde, ala ei tiedossa"].join(" · ");
+      const meta = [b.class_label, b.footprint_m2 ? `pohja ${fmt(b.footprint_m2)} m² × ${b.floors} krs` : "pistekohde, ala ei tiedossa"].join(", ");
       const body = b.heated ? `
         <div class="bbody">
           <label class="full">Nimi<input data-f="name" value="${esc(b.name)}"></label>
@@ -360,7 +360,7 @@
     return `<div class="gcard" data-type="${type}" data-id="${esc(g.id)}">
       <header><span class="gtype ${type}"></span><input data-g="name" value="${esc(g.name)}" aria-label="Nimi">
         ${list.length > 1 ? `<button type="button" class="iconbtn" data-del="1" title="Poista" aria-label="Poista">×</button>` : ""}</header>
-      <div class="gmembers">${type === "heat" ? "Lämpö" : "Sähkö"} · ${members.length ? members.map((b) => esc(b.name)).join(", ") : "ei rakennuksia"}</div>
+      <div class="gmembers">${type === "heat" ? "Lämpö" : "Sähkö"}: ${members.length ? members.map((b) => esc(b.name)).join(", ") : "ei rakennuksia"}</div>
       <div class="seg" role="group">${KINDS.map(([k, l]) => `<button type="button" data-kind="${k}" class="${d.kind === k ? "on" : ""}">${l}</button>`).join("")}</div>
       ${input}${eff}${opts}
       ${d.kind === "none" ? `<p class="hint">Ilman kulutustietoa tulos on mallin oletus eikä kuvaa tilaa.</p>` : ""}
@@ -446,7 +446,7 @@
     const rows = state.stations.map((s) => `
       <label class="station${ch.type === "fmi" && ch.fmisid === s.fmisid ? " on" : ""}">
         <input type="radio" name="wx" data-fmisid="${s.fmisid}" ${ch.type === "fmi" && ch.fmisid === s.fmisid ? "checked" : ""}>
-        <span>${esc(s.name)}<small>FMI-asema ${s.fmisid}${s.begin ? ` · havainnot ${s.begin.slice(0, 4)}–` : ""}</small></span>
+        <span>${esc(s.name)}<small>FMI-asema ${s.fmisid}${s.begin ? `, havainnot vuodesta ${s.begin.slice(0, 4)}` : ""}</small></span>
         <span class="dist">${fmt(s.distance_km, 1)} km</span>
       </label>`).join("");
     host.innerHTML = rows + `
@@ -503,9 +503,9 @@
     if (!w) { el.hidden = true; return; }
     el.hidden = false;
     el.innerHTML = `<strong>${esc(w.label)}</strong>, vuosi ${state.year}<br>
-      <span class="nums">ka ${fmt(w.mean, 1)} °C · min ${fmt(w.min, 1)} · max ${fmt(w.max, 1)}</span><br>
+      <span class="nums">keskiarvo ${fmt(w.mean, 1)} °C, min ${fmt(w.min, 1)}, max ${fmt(w.max, 1)}</span><br>
       ${w.interpolated ? `${fmt(w.interpolated)} tuntia interpoloitu. ` : ""}${w.patched ? `${fmt(w.patched)} tuntia täydennetty Open-Meteosta. ` : ""}
-      ${w.missing ? `<span style="color:var(--bad)">${fmt(w.missing)} tuntia puuttuu – valitse toinen lähde.</span>` : "Sarja on täydellinen."}`;
+      ${w.missing ? `<span style="color:var(--bad)">${fmt(w.missing)} tuntia puuttuu. Valitse toinen lähde.</span>` : "Sarja on täydellinen."}`;
   }
 
   // ------------------------------------------------------------------ model
@@ -533,8 +533,8 @@
     el.hidden = false;
     const lines = [];
     if (p) {
-      lines.push(`<strong>${state.year}</strong>: <span class="nums">${fmt(p.hours)}</span> / 8 760 tuntia · ka <span class="nums">${fmt(p.mean, 2)}</span> €/MWh ·
-        min <span class="nums">${fmt(p.min, 2)}</span> · max <span class="nums">${fmt(p.max, 2)}</span> · negatiivisia <span class="nums">${fmt(p.negative)}</span> h`);
+      lines.push(`<strong>${state.year}</strong>: <span class="nums">${fmt(p.hours)}</span> / 8 760 tuntia, keskiarvo <span class="nums">${fmt(p.mean, 2)}</span> €/MWh,
+        min <span class="nums">${fmt(p.min, 2)}</span>, max <span class="nums">${fmt(p.max, 2)}</span>, negatiivisia <span class="nums">${fmt(p.negative)}</span> h`);
       if (p.missing) lines.push(p.future >= p.missing - 1
         ? `Vuosi on kesken: ${fmt(p.missing)} tuntia puuttuu. Laskuri täyttää puuttuvat tunnit muiden vuosien keskiarvolla.`
         : `<span style="color:var(--warn)">${fmt(p.missing)} tuntia puuttuu lähteestä.</span>`);
@@ -650,10 +650,10 @@
       <td class="n">${fmt(b.heat_kwh / 1000, 1)}</td><td class="n">${fmt(b.heat_peak_kw, 1)}</td></tr>`).join("");
     host.innerHTML = `
       <div class="res-head">
-        <h3>Tuntiprofiili ${r.year} · ${esc(state.area?.display || "")}</h3>
+        <h3>Tuntiprofiili ${r.year}${state.area?.display ? `, ${esc(state.area.display)}` : ""}</h3>
         <div class="res-actions">
           <button type="button" class="btn small primary" id="dlCsv">Lataa CSV laskuriin</button>
-          <button type="button" class="btn small" id="copyEF">Kopioi sarakkeet E–F</button>
+          <button type="button" class="btn small" id="copyEF">Kopioi sarakkeet E:F</button>
         </div>
       </div>
       <div class="kpis">
@@ -672,7 +672,7 @@
       </div>
       <div class="howto"><strong>Laskuriin vienti</strong>
         <ol>
-          <li>Avaa ladattu CSV Excelissä. Kopioi sen sarakkeet E–F (rivit 2–8 761) tai käytä painiketta <em>Kopioi sarakkeet E–F</em>.</li>
+          <li>Avaa ladattu CSV Excelissä. Kopioi sen sarakkeet E–F (rivit 2–8 761) tai käytä painiketta <em>Kopioi sarakkeet E:F</em>.</li>
           <li>Liitä laskurin <em>Oma kulutusdata</em> -välilehdelle soluun E2: Liitä määräten → Arvot.</li>
           <li>Valitse Ohjauspaneelin solusta D4 <em>Oma data</em> ja tarkista K11–L11 sekä K14.</li>
           ${state.prices[r.year] ? `<li>Kopioi CSV:n sarake H (pörssihinta) ja liitä se <em>Hintahistoria</em>-välilehdelle vuoden ${r.year} sarakkeeseen riville 2 (${({2023: "C", 2024: "D", 2025: "E", 2026: "F"})[r.year] || "vuoden sarake"}2). Valitse Ohjauspaneelista K22 = Pörssihinta ja K49 = ${r.year}.</li>` : `<li>Pörssihinnat voi hakea kohdassa 5; ne tulevat CSV:n sarakkeeksi H.</li>`}
@@ -737,7 +737,7 @@
     if (layers.area) map.fitBounds(layers.area.getBounds(), { padding: [30, 30], maxZoom: 17 });
     if (state.area) {
       const chip = $("#areaChip");
-      chip.textContent = state.area.kind === "property" ? `Kiinteistö ${state.area.display} · ${fmt(state.area.area_ha, 1)} ha` : state.area.display;
+      chip.textContent = state.area.kind === "property" ? `Kiinteistö ${state.area.display}, ${fmt(state.area.area_ha, 1)} ha` : state.area.display;
       chip.hidden = false;
       $("#kt").value = state.area.kind === "property" ? state.area.display : "";
       loadStations();
@@ -804,7 +804,13 @@
   }
 
   // ------------------------------------------------------------------ boot
+  // The map stage sits below the sticky top bar, whose height changes when it wraps.
+  function syncTopHeight() { document.documentElement.style.setProperty("--top-h", $(".top").offsetHeight + "px"); }
+  if (window.ResizeObserver) new ResizeObserver(syncTopHeight).observe($(".top"));
+  else window.addEventListener("resize", syncTopHeight);
+
   async function boot() {
+    syncTopHeight();
     const ys = $("#year");
     const cy = new Date().getFullYear();
     for (let y = cy; y >= cy - 8; y--) ys.insertAdjacentHTML("beforeend", `<option value="${y}">${y}</option>`);
@@ -817,7 +823,7 @@
       $("#step1Hint").innerHTML = "MML-rajapinta-avain puuttuu, joten kiinteistö- ja rakennushaku eivät toimi. Lisää <code>MML_API_KEY</code> tiedostoon <code>.env</code> ja käynnistä uudelleen, tai lisää rakennukset kartalle käsin kohdassa 2.";
     }
     const at = META.attribution || {};
-    $("#attrib").innerHTML = [at.mml, at.fmi, at.open_meteo, at.prices].filter(Boolean).map((s) => `<span>${esc(s)}</span>`).join("") + `<span>Rakennushaku ${esc(META.version || "")} · EIP CHP Energiaälykäs eteläpohjalainen maatila · SeAMK · prototyyppi, ei takuuta · koodi MIT-lisenssillä</span>`;
+    $("#attrib").innerHTML = [at.mml, at.fmi, at.open_meteo, at.prices].filter(Boolean).map((s) => `<span>${esc(s)}</span>`).join("") + `<span>Rakennushaku ${esc(META.version || "")}, prototyyppi ilman takuuta. Koodi MIT-lisenssillä.</span><span>SEAMK, Maatalous ja energia -tutkimusryhmä. EIP CHP Energiaälykäs eteläpohjalainen maatila -hanke.</span>`;
     initBaseLayers();
     let draft = null;
     try { draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch (_) { draft = null; }

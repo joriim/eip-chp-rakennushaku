@@ -155,8 +155,8 @@ def page() -> str:
     html = sub(html, '<link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">', "<style>\n" + leaflet_css() + "\n</style>")
     css = (STATIC / "app.css").read_text(encoding="utf-8")
     css += """
-.keybox { display: flex; align-items: center; gap: 6px; color: var(--ink-2); font-size: 13px; }
-.keybox input { width: 13.5em; font-family: var(--font-num); font-size: 12px; padding: 4px 7px; }
+.keybox { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: var(--text-sm); }
+.keybox input { width: 13.5em; font-family: var(--font-code); font-size: var(--text-xs); }
 .privacy { color: var(--ink-3); }
 @media (max-width: 900px) { .keybox input { width: 100%; } .keybox { flex: 1 1 100%; } }
 """
@@ -181,7 +181,6 @@ def page() -> str:
                "<script>/* Leaflet 1.9.4 (https://leafletjs.com), BSD-2-Clause:\n" + lic + "\n*/\n" + leaflet + "\n</script>")
     engine = (WEB / "engine.js").read_text(encoding="utf-8")
     html = sub(html, '<script src="/static/app.js"></script>', "<script>\n" + engine + "\n</script>\n<script>\n" + ui_js() + "\n</script>")
-    html = sub(html, "<title>Rakennushaku</title>", "<title>Rakennushaku</title>\n<meta name=\"description\" content=\"Tilan lämmitettävät rakennukset ja tunnittainen energiaprofiili Maatilan hybridienergialaskuriin\">")
     return html
 
 

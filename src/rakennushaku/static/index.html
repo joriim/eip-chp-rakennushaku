@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Rakennushaku</title>
+<meta name="description" content="Tilan lämmitettävät rakennukset ja tunnittainen energiaprofiili Maatilan hybridienergialaskuriin. SEAMK, Maatalous ja energia -tutkimusryhmä.">
 <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="/static/app.css">
 </head>
@@ -12,6 +13,7 @@
   <div class="brand">
     <span class="brand-name">Rakennushaku</span>
     <span class="brand-sub">tilan rakennukset → Maatilan hybridienergialaskuri</span>
+    <span class="brand-org">SEAMK Maatalous ja energia</span>
   </div>
   <div class="top-meta">
     <span id="areaChip" class="chip" hidden></span>
@@ -26,7 +28,7 @@
   <aside class="panel" id="panel">
 
     <section class="step" id="step1">
-      <h2><span class="num">1</span>Tila</h2>
+      <div class="step-head"><span class="num" aria-hidden="true">1</span><h2>Tila</h2></div>
       <form id="ktForm" class="row">
         <label for="kt" class="sr">Kiinteistötunnus</label>
         <input id="kt" name="kt" placeholder="Kiinteistötunnus (KKK-RRR-YYYY-XXXX)" autocomplete="off" inputmode="numeric">
@@ -40,7 +42,7 @@
     </section>
 
     <section class="step" id="step2">
-      <h2><span class="num">2</span>Rakennukset laskentaan</h2>
+      <div class="step-head"><span class="num" aria-hidden="true">2</span><h2>Rakennukset laskentaan</h2></div>
       <div class="row wrap">
         <label for="mainUse" class="inline">Tuotantorakennusten käyttö
           <select id="mainUse"></select>
@@ -52,7 +54,7 @@
     </section>
 
     <section class="step" id="step3">
-      <h2><span class="num">3</span>Nykyinen energiankulutus</h2>
+      <div class="step-head"><span class="num" aria-hidden="true">3</span><h2>Nykyinen energiankulutus</h2></div>
       <p class="hint">Kulutus annetaan sähkömittareittain ja lämmityspiireittäin, koska tieto tulee laskuilta ja mittareilta, ei rakennuksittain. Vuoden pitää olla sama kuin tarkasteluvuosi.</p>
       <div id="groupCards"></div>
       <div class="row wrap">
@@ -62,7 +64,7 @@
     </section>
 
     <section class="step" id="step4">
-      <h2><span class="num">4</span>Säätiedot</h2>
+      <div class="step-head"><span class="num" aria-hidden="true">4</span><h2>Säätiedot</h2></div>
       <p class="hint">Ulkolämpötila samalta vuodelta kuin kulutustiedot. Lähin FMI:n asema on yleensä paras; Open-Meteo antaa arvion suoraan tilan kohdalle.</p>
       <div id="stationList" class="stations"><p class="empty">Asemat haetaan, kun tila on valittu.</p></div>
       <div class="row wrap">
@@ -74,21 +76,21 @@
     </section>
 
     <section class="step" id="stepPrice">
-      <h2><span class="num">5</span>Sähkön pörssihinta</h2>
+      <div class="step-head"><span class="num" aria-hidden="true">5</span><h2>Sähkön pörssihinta</h2></div>
       <p class="hint">Suomen alueen tuntihinnat tarkasteluvuodelle laskurin <em>Hintahistoria</em>-välilehdelle (€/MWh, alv 0). Hinnat haetaan Sähkötin-palvelusta, joka välittää Nord Poolin dataa ei-kaupalliseen käyttöön.</p>
       <div class="row wrap">
         <button type="button" class="btn" id="fetchPrices">Hae vuoden hinnat</button>
-        <button type="button" class="btn small" id="fetchAllPrices">Hae kaikki laskurin vuodet 2023–2026</button>
+        <button type="button" class="btn small" id="fetchAllPrices">Hae kaikki laskurin vuodet (2023 alkaen)</button>
       </div>
       <div id="priceSummary" class="summary" hidden></div>
       <div class="row wrap" id="priceActions" hidden>
         <button type="button" class="btn small" id="dlPrices">Lataa Hintahistoria-CSV</button>
-        <button type="button" class="btn small" id="copyPrices">Kopioi sarakkeet C–F</button>
+        <button type="button" class="btn small" id="copyPrices">Kopioi sarakkeet C:F</button>
       </div>
     </section>
 
     <section class="step" id="step5">
-      <h2><span class="num">6</span>Energiaprofiili</h2>
+      <div class="step-head"><span class="num" aria-hidden="true">6</span><h2>Energiaprofiili</h2></div>
       <button type="button" class="btn primary wide" id="runModel">Laske tuntiprofiili</button>
       <div id="checklist" class="checklist"></div>
       <div class="row wrap">

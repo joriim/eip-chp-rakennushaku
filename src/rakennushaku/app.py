@@ -27,7 +27,7 @@ WMTS = os.environ.get("RAKENNUSHAKU_WMTS", "https://avoin-karttakuva.maanmittaus
 app = FastAPI(title="Rakennushaku", version=__version__)
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 _session = requests.Session()
-_session.headers["User-Agent"] = f"rakennushaku/{__version__} (SeAMK EIP CHP)"
+_session.headers["User-Agent"] = f"rakennushaku/{__version__} (SEAMK EIP CHP)"
 
 
 def api_key() -> str:

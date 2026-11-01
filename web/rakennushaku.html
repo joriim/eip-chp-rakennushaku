@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Rakennushaku</title>
-<meta name="description" content="Tilan lämmitettävät rakennukset ja tunnittainen energiaprofiili Maatilan hybridienergialaskuriin">
+<meta name="description" content="Tilan lämmitettävät rakennukset ja tunnittainen energiaprofiili Maatilan hybridienergialaskuriin. SEAMK, Maatalous ja energia -tutkimusryhmä.">
 <style>
 /* required styles */
 
@@ -670,255 +670,337 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
 </style>
 <style>
-/* Layout: fixed-width step panel on the left, map + results stage on the right; stacks on phones.
-   Palette follows the calculator's "Värit ja ilme" sheet: Pelto green for UI accents,
-   lila for electricity, Lämpö terracotta for heat. */
+/* Hallmark · shape: app screen · genre: modern-minimal · theme: brand (SEAMK, spec 2026-11-01 from seamk-brandikasikirja.md) · redesign: full
+ * paper: oklch(0.985 0.004 305) · accent: oklch(0.40 0.14 305) · display: Alte DIN 1451 Mittelschrift (Bahnschrift fallback) · body: Arial
+ * nav: kept (top bar + step panel + map stage) · signature: the map with the farm's buildings and the hourly profile under it · states: empty, loading (toast), error (toast, inline), full
+ * axes: light/display-condensed/chromatic-purple · posture: workbench · contrast: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H3 E4 S4 R4 V4 · weakest: H, an app screen has no hero; the brand band and the DIN wordmark carry recognition instead */
+/* Hallmark · reworded "<span class=num>1</span>Tila" to a .step-head holding the number and "Tila" (all six steps) · 38iii names the accented number inside the heading */
+/* Hallmark · reworded "Kopioi sarakkeet C–F" to "Kopioi sarakkeet C:F" (spreadsheet range notation) · 19 names the dash */
+/* Hallmark · reworded "Hae kaikki laskurin vuodet 2023–2026" to "Hae kaikki laskurin vuodet (2023 alkaen)" · 19 names the dash */
+
+/* SEAMKin brändikäsikirja (graafinen ohjeisto):
+   - Päävärit lila PMS 267C #542583 ja keltainen Process Yellow C #FFF023 (verkko, ensisijaiset).
+     Lila: pääotsikot, ensisijaiset toiminnot, valinnat, sähkö. Keltainen: brändiraita yläreunassa.
+   - Vaalennukset käsikirjan sävyportain (75/50/25 %): lila 25 % #D4C9E0 = valinnan tausta.
+   - Tunnusvärit (sininen, syaani, vihreä) on varattu logolle, eikä niitä käytetä.
+   - Maatalous ja energia -tutkimusryhmän värit: Lämpö #B24A28 (lämpö), Pelto #2E6B3F (valmis),
+     Olki #D9A21B (huomautukset, tekstissä tummennettuna saavutettavuuden vuoksi).
+   - Typografia sähköisille lomakkeille: Alte DIN 1451 Mittelschrift otsikoihin, Arial leipätekstiin.
+     Fontteja ei ladata verkosta; DIN-fontin puuttuessa käytetään Windowsin Bahnschriftia (DIN 1451 -pohjainen).
+   - Kontrasti WCAG AA (4,5:1) kaikilla tekstipareilla, myös tummassa tilassa. */
 :root {
-  --bg: #f6f7f4;
+  --brand-purple: #542583;
+  --brand-yellow: #fff023;
+  --paper: #faf8fc;
   --surface: #ffffff;
-  --surface-2: #eef1ec;
-  --ink: #1d231f;
-  --ink-2: #4c564f;
-  --ink-3: #7a847d;
-  --line: #d9ded8;
-  --accent: #2e6b3f;          /* Pelto */
+  --surface-2: #f1eef4;           /* neutraali, lilaan taittuva harmaa */
+  --ink: #1e1a24;
+  --ink-2: #463f50;
+  --ink-3: #5f5869;
+  --line: #d9d2e1;
+  --line-strong: #8a7f96;
+  --accent: #542583;
+  --accent-hover: #441d6b;
   --accent-ink: #ffffff;
-  --accent-soft: #d5e4d8;
-  --el: #6b3fa0;              /* sähkö (validated pair, light) */
-  --heat: #b24a28;            /* lämpö */
-  --neighbour: #9aa39c;
-  --ok: #2e7d4f;
-  --warn: #a8670b;
+  --accent-soft: #d4c9e0;         /* lila 25 % */
+  --el: #542583;                  /* sähkö = SEAMK lila */
+  --heat: #b24a28;                /* Lämpö */
+  --neighbour: #9a93a3;
+  --ok: #2e6b3f;                  /* Pelto */
+  --ok-soft: #d5e1d9;
+  --warn: #7f5a00;                /* Olki, tekstiin tummennettu */
+  --warn-soft: #f7ecd1;           /* Olki 20 % */
   --bad: #b3261e;
-  --warn-soft: #f7ecd1;       /* Olki 20 % */
-  --font-ui: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-num: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, "Liberation Mono", monospace;
-  --r: 6px;
+  --on-bad: #ffffff;
+  --shadow: rgb(30 26 36 / .18);
+  --scrim: rgb(20 16 26 / .5);
+  --font-display: "Alte DIN 1451 Mittelschrift", "DIN 1451 Mittelschrift", Bahnschrift, "DIN Alternate", "Arial Narrow", Arial, sans-serif;
+  --font-body: Arial, "Liberation Sans", "Helvetica Neue", Helvetica, sans-serif;
+  --font-code: ui-monospace, Consolas, "Liberation Mono", monospace;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 19px;
+  --text-kpi: 23px;
+  --r: 4px;
+  --r-lg: 8px;
+  --control: 36px;
+  --control-sm: 32px;
+  --dur-micro: 90ms;
+  --dur-short: 160ms;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #141715;
-    --surface: #1b1f1c;
-    --surface-2: #232824;
-    --ink: #e7ebe7;
-    --ink-2: #b4bdb6;
-    --ink-3: #87918a;
-    --line: #333a35;
-    --accent: #6fb183;
-    --accent-ink: #0f1a12;
-    --accent-soft: #24382a;
-    --el: #9a73d0;
-    --heat: #d2704a;
-    --neighbour: #5f6862;
-    --ok: #6fbf8b;
-    --warn: #e0a540;
-    --bad: #ef7d73;
+    --paper: #17141b;
+    --surface: #1f1b24;
+    --surface-2: #2a2531;
+    --ink: #ece8f1;
+    --ink-2: #c8c0d2;
+    --ink-3: #a79fb2;
+    --line: #3a3443;
+    --line-strong: #7a708a;
+    --accent: #c2a8e3;
+    --accent-hover: #d4c0ec;
+    --accent-ink: #1b1324;
+    --accent-soft: #3a2f4a;
+    --el: #b596de;
+    --heat: #e0835f;
+    --neighbour: #6c6576;
+    --ok: #86c39a;
+    --ok-soft: #1f3326;
+    --warn: #e6b84f;
     --warn-soft: #3a3020;
+    --bad: #f08a80;
+    --on-bad: #2a0e0b;
+    --shadow: rgb(0 0 0 / .45);
+    --scrim: rgb(0 0 0 / .6);
     color-scheme: dark;
   }
 }
 
-* { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html, body { height: 100%; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 var(--font-ui); }
+html, body { overflow-x: clip; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: var(--text-md)/1.45 var(--font-body); -webkit-font-smoothing: antialiased; }
 button, input, select { font: inherit; color: inherit; }
-.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+h1, h2, h3, h4 { overflow-wrap: break-word; min-width: 0; }
+code { font-family: var(--font-code); font-size: .92em; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* top bar: the yellow brand band, the DIN wordmark, the research group */
 .top {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-  padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px));
-  background: var(--surface); border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap;
+  padding: 8px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px));
+  background: var(--surface); border-top: 4px solid var(--brand-yellow); border-bottom: 1px solid var(--line);
 }
-.brand { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.brand-name { font-weight: 700; font-size: 17px; letter-spacing: -0.01em; color: var(--accent); }
-.brand-sub { color: var(--ink-3); font-size: 13px; }
-.top-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.year-pick { display: flex; align-items: center; gap: 6px; color: var(--ink-2); font-size: 13px; }
+.brand { display: flex; align-items: baseline; gap: 4px 16px; flex-wrap: wrap; min-width: 0; }
+.brand-name { font-family: var(--font-display); font-weight: 400; font-size: 22px; line-height: 1; color: var(--accent); }
+.brand-sub { color: var(--ink-3); font-size: var(--text-sm); }
+.brand-org { font-family: var(--font-display); font-size: var(--text-md); color: var(--ink-2); padding-left: 16px; border-left: 1px solid var(--line); }
+.top-meta { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; }
+.year-pick { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: var(--text-sm); }
 .chip {
-  display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px;
-  background: var(--surface-2); color: var(--ink-2); font-size: 12px; white-space: nowrap;
+  display: inline-flex; align-items: center; padding: 4px 8px; border-radius: var(--r);
+  background: var(--surface-2); color: var(--ink-2); font-size: var(--text-xs); white-space: nowrap;
 }
-.chip.ok::before, .chip.warn::before { content: ""; width: 7px; height: 7px; border-radius: 50%; }
-.chip.ok::before { background: var(--ok); }
-.chip.warn::before { background: var(--warn); }
+.chip.ok { background: var(--ok-soft); color: var(--ok); }
+.chip.warn { background: var(--warn-soft); color: var(--warn); }
 
-.layout { display: grid; grid-template-columns: minmax(340px, 430px) 1fr; height: calc(100% - 53px); min-height: 0; }
-.panel { overflow-y: auto; background: var(--surface); border-right: 1px solid var(--line); min-width: 0; }
-.stage { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+/* the page scrolls the steps; the map stage stays put beside them */
+.top { position: sticky; top: 0; z-index: 1100; }
+.layout { display: grid; grid-template-columns: minmax(340px, 440px) minmax(0, 1fr); min-height: calc(100dvh - var(--top-h, 57px)); }
+.panel { background: var(--surface); color: var(--ink); border-right: 1px solid var(--line); min-width: 0; }
+.stage { position: sticky; top: var(--top-h, 57px); height: calc(100dvh - var(--top-h, 57px)); display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .map { flex: 1 1 auto; min-height: 280px; background: var(--surface-2); }
 .results {
   flex: 0 0 auto; max-height: 52%; overflow-y: auto; background: var(--surface);
-  border-top: 1px solid var(--line); padding: 14px 18px 18px;
+  border-top: 1px solid var(--line); padding: 16px 20px 20px;
 }
 
-.step { padding: 16px 18px; border-bottom: 1px solid var(--line); display: grid; gap: 10px; }
-.step h2 { margin: 0; font-size: 15px; font-weight: 650; display: flex; align-items: center; gap: 9px; text-wrap: balance; }
+/* steps: a numbered rail down the panel */
+.step { padding: 16px 20px 20px; border-bottom: 1px solid var(--line); display: grid; gap: 12px; }
+.step-head { display: flex; align-items: center; gap: 12px; }
+.step h2 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: var(--text-lg); line-height: 1.2; color: var(--ink); text-wrap: balance; }
 .num {
-  display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
-  background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 700;
+  display: inline-grid; place-items: center; width: 24px; height: 24px; flex: 0 0 auto; border-radius: var(--r);
+  border: 1px solid var(--accent); color: var(--accent); font-family: var(--font-body); font-size: var(--text-xs); font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
-.step.done .num { background: var(--accent-soft); color: var(--accent); }
-.hint { margin: 0; color: var(--ink-3); font-size: 12.5px; max-width: 62ch; }
-.empty { margin: 0; color: var(--ink-3); font-size: 13px; }
+.step.done .num { background: var(--accent); color: var(--accent-ink); }
+.hint { margin: 0; color: var(--ink-3); font-size: var(--text-sm); max-width: 62ch; }
+.empty { margin: 0; color: var(--ink-3); font-size: var(--text-sm); }
 .row { display: flex; gap: 8px; align-items: center; }
 .row.wrap { flex-wrap: wrap; }
 .row > input { flex: 1 1 auto; min-width: 0; }
-label.inline { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 13px; }
+label.inline { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: var(--text-sm); }
 
 input, select {
-  background: var(--bg); border: 1px solid var(--line); border-radius: var(--r); padding: 6px 8px; min-width: 0;
+  min-height: var(--control-sm); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r);
+  padding: 4px 8px; min-width: 0; transition: border-color var(--dur-micro) ease-out;
 }
-input:focus-visible, select:focus-visible, button:focus-visible, .btn:focus-within {
-  outline: 2px solid var(--accent); outline-offset: 1px;
-}
-input[type="number"] { font-family: var(--font-num); font-size: 13px; }
+.row > input, #kt { min-height: var(--control); }
+input:hover, select:hover { border-color: var(--ink-3); }
+input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
+input:disabled, select:disabled { opacity: .55; cursor: not-allowed; }
+input[type="number"] { font-variant-numeric: tabular-nums; }
+input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(--accent); }
+
 .btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;
-  padding: 7px 12px; border-radius: var(--r); border: 1px solid var(--line); background: var(--surface);
-  color: var(--ink); font-weight: 550; white-space: nowrap;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; min-height: var(--control);
+  padding: 4px 12px; border-radius: var(--r); border: 1px solid var(--line-strong); background: var(--surface);
+  color: var(--ink); font-weight: 700; font-size: var(--text-sm); white-space: nowrap;
+  transition: background-color var(--dur-micro) ease-out, border-color var(--dur-micro) ease-out, transform var(--dur-micro) ease-out;
 }
-.btn:hover { border-color: var(--accent); }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn:active { transform: translateY(1px); background: var(--surface-2); }
+.btn:focus-visible, .btn.file:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.btn.primary:hover { filter: brightness(1.08); }
-.btn.small { padding: 5px 10px; font-size: 13px; }
-.btn.wide { width: 100%; padding: 10px; }
+.btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--accent-ink); }
+.btn.primary:active { background: var(--accent-hover); }
+.btn.small { min-height: var(--control-sm); padding: 4px 12px; font-size: var(--text-sm); }
+.btn.wide { width: 100%; min-height: 40px; font-size: var(--text-md); }
 .btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-.btn[disabled] { opacity: .5; cursor: not-allowed; }
+.btn[disabled], .btn[disabled]:hover { opacity: .5; cursor: not-allowed; border-color: var(--line-strong); color: var(--ink); transform: none; }
 .btn.file { position: relative; overflow: hidden; }
 .btn.file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 
 /* building list */
-.blist { display: grid; gap: 6px; }
-.bitem { border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
-.bitem.on { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
-.bitem.neighbour { opacity: .72; }
-.bitem.focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-.bhead { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; padding: 8px 10px; cursor: pointer; }
-.bhead input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--accent); margin: 0; }
+.blist { display: grid; gap: 8px; }
+.bitem { border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); transition: border-color var(--dur-micro) ease-out; }
+.bitem:hover { border-color: var(--line-strong); }
+.bitem.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent-soft) 35%, var(--surface)); }
+.bitem.neighbour { opacity: .75; }
+.bitem.focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bhead { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px 12px; align-items: center; padding: 8px 12px; cursor: pointer; min-height: 44px; }
+.bhead input[type="checkbox"] { width: 18px; height: 18px; margin: 0; }
 .btitle { min-width: 0; }
-.btitle strong { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.btitle span { color: var(--ink-3); font-size: 12px; }
-.barea { font-family: var(--font-num); font-size: 12.5px; color: var(--ink-2); text-align: right; white-space: nowrap; }
-.tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: var(--warn-soft); color: var(--warn); margin-left: 6px; }
-.bbody { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; padding: 0 10px 10px; }
-.bbody label { display: grid; gap: 3px; font-size: 12px; color: var(--ink-2); min-width: 0; }
+.btitle strong { display: block; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btitle span { color: var(--ink-3); font-size: var(--text-xs); }
+.barea { font-variant-numeric: tabular-nums; font-size: var(--text-sm); color: var(--ink-2); text-align: right; white-space: nowrap; }
+.tag { font-size: var(--text-xs); padding: 0 4px; border-radius: var(--r); background: var(--warn-soft); color: var(--warn); margin-left: 4px; }
+.bbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; padding: 0 12px 12px; }
+.bbody label { display: grid; gap: 4px; font-size: var(--text-xs); color: var(--ink-2); min-width: 0; }
 .bbody .full { grid-column: 1 / -1; }
-.bbody .note { grid-column: 1 / -1; font-size: 12px; color: var(--ink-3); margin: 0; }
+.bbody .note { grid-column: 1 / -1; font-size: var(--text-xs); color: var(--ink-3); margin: 0; }
 
-/* group cards */
-#groupCards { display: grid; gap: 10px; }
-.gcard { border: 1px solid var(--line); border-radius: var(--r); padding: 10px; display: grid; gap: 8px; }
+/* meters and heating circuits */
+#groupCards { display: grid; gap: 12px; }
+.gcard { border: 1px solid var(--line); border-radius: var(--r); padding: 12px; display: grid; gap: 8px; background: var(--surface); color: var(--ink); }
 .gcard header { display: flex; align-items: center; gap: 8px; }
-.gcard header input { flex: 1; font-weight: 600; }
-.gtype { width: 9px; height: 9px; border-radius: 2px; flex: 0 0 auto; }
+.gcard header input { flex: 1; font-weight: 700; }
+.gtype { width: 10px; height: 10px; border-radius: 2px; flex: 0 0 auto; }
 .gtype.heat { background: var(--heat); }
 .gtype.el { background: var(--el); }
-.gmembers { font-size: 12px; color: var(--ink-3); }
-.seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; flex-wrap: wrap; }
-.seg button { border: 0; background: transparent; padding: 5px 9px; font-size: 12.5px; cursor: pointer; color: var(--ink-2); }
-.seg button + button { border-left: 1px solid var(--line); }
-.seg button.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.gmembers { font-size: var(--text-xs); color: var(--ink-3); }
+.seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: var(--r); overflow: hidden; flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; min-height: var(--control-sm); padding: 4px 12px; font-size: var(--text-sm); cursor: pointer; color: var(--ink-2); transition: background-color var(--dur-micro) ease-out; }
+.seg button + button { border-left: 1px solid var(--line-strong); }
+.seg button:hover { background: var(--surface-2); }
+.seg button:active { background: var(--accent-soft); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.seg button.on { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
 .months { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
-.months label { display: grid; gap: 2px; font-size: 11px; color: var(--ink-3); }
-.months input { padding: 4px 5px; width: 100%; }
-.iconbtn { border: 0; background: none; color: var(--ink-3); cursor: pointer; padding: 2px 6px; font-size: 16px; line-height: 1; }
-.iconbtn:hover { color: var(--bad); }
+.months label { display: grid; gap: 2px; font-size: var(--text-xs); color: var(--ink-3); }
+.months input { padding: 4px; width: 100%; }
+.iconbtn { border: 0; background: none; color: var(--ink-3); cursor: pointer; min-width: 32px; min-height: 32px; padding: 4px; font-size: var(--text-lg); line-height: 1; border-radius: var(--r); }
+.iconbtn:hover { color: var(--bad); background: var(--surface-2); }
+.iconbtn:active { transform: translateY(1px); }
+.iconbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
 
-/* stations */
+/* weather stations */
 .stations { display: grid; gap: 4px; }
-.station { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; padding: 6px 8px;
-  border: 1px solid var(--line); border-radius: var(--r); cursor: pointer; }
-.station.on { border-color: var(--accent); background: var(--accent-soft); }
-.station input { accent-color: var(--accent); margin: 0; }
-.station .dist { font-family: var(--font-num); font-size: 12px; color: var(--ink-2); }
-.station small { display: block; color: var(--ink-3); font-size: 11.5px; }
-.summary { font-size: 13px; padding: 8px 10px; background: var(--surface-2); border-radius: var(--r); }
-.summary .nums { font-family: var(--font-num); font-size: 12.5px; }
+.station { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 8px;
+  border: 1px solid var(--line); border-radius: var(--r); cursor: pointer; transition: border-color var(--dur-micro) ease-out; }
+.station:hover { border-color: var(--line-strong); }
+.station.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface)); }
+.station input { margin: 0; }
+.station .dist { font-variant-numeric: tabular-nums; font-size: var(--text-xs); color: var(--ink-2); }
+.station small { display: block; color: var(--ink-3); font-size: var(--text-xs); }
+.summary { font-size: var(--text-sm); padding: 8px 12px; background: var(--surface-2); border-radius: var(--r); }
+.summary .nums { font-variant-numeric: tabular-nums; }
 
-.checklist { display: grid; gap: 4px; font-size: 12.5px; }
-.checklist div { display: flex; gap: 8px; align-items: baseline; color: var(--ink-2); }
-.checklist div::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--line); flex: 0 0 auto; transform: translateY(1px); }
-.checklist div.ok::before { background: var(--ok); }
-.checklist div.warn::before { background: var(--warn); }
+/* readiness list: a glyph per state, no decorative dots */
+.checklist { display: grid; gap: 4px; font-size: var(--text-sm); }
+.checklist div { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 8px; align-items: baseline; color: var(--ink-2); }
+.checklist div::before { content: "–"; color: var(--ink-3); font-weight: 700; text-align: center; }
+.checklist div.ok::before { content: "✓"; color: var(--ok); }
+.checklist div.warn::before { content: "!"; color: var(--warn); }
 
-.attrib { padding: 14px 18px 22px; color: var(--ink-3); font-size: 11.5px; display: grid; gap: 4px; }
+.attrib { padding: 16px 20px 24px; color: var(--ink-3); font-size: var(--text-xs); display: grid; gap: 4px; }
 
 .mode-banner {
   position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 800;
-  background: var(--ink); color: var(--bg); padding: 7px 14px; border-radius: 999px; font-size: 13px;
-  display: flex; gap: 10px; align-items: center; box-shadow: 0 4px 14px rgb(0 0 0 / .2); max-width: calc(100% - 32px);
+  background: var(--ink); color: var(--paper); padding: 8px 16px; border-radius: var(--r); font-size: var(--text-sm);
+  display: flex; gap: 12px; align-items: center; box-shadow: 0 4px 16px var(--shadow); max-width: calc(100% - 32px);
 }
-.mode-banner button { background: none; border: 0; color: inherit; text-decoration: underline; cursor: pointer; padding: 0; }
+.mode-banner button { background: none; border: 0; color: inherit; text-decoration: underline; cursor: pointer; padding: 0; min-height: 32px; }
 
-/* results */
-.res-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
-.res-head h3 { margin: 0; font-size: 15px; }
-.res-actions { display: flex; gap: 6px; flex-wrap: wrap; }
-.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
-.kpi { padding: 8px 10px; border-left: 3px solid var(--line); }
-.kpi.el { border-color: var(--el); }
-.kpi.heat { border-color: var(--heat); }
-.kpi b { display: block; font-family: var(--font-num); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.kpi span { color: var(--ink-3); font-size: 12px; }
-.charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 14px; }
-.chart h4 { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+/* results: the hourly profile under the map */
+.res-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.res-head h3 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: var(--text-xl); color: var(--accent); }
+.res-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin-bottom: 16px; border: 1px solid var(--line); border-radius: var(--r); }
+.kpi { padding: 8px 12px; display: grid; gap: 2px; }
+.kpi + .kpi { border-left: 1px solid var(--line); }
+.kpi b { display: block; font-size: var(--text-kpi); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.kpi span { color: var(--ink-3); font-size: var(--text-xs); display: flex; align-items: center; gap: 8px; }
+.kpi span::before { content: ""; width: 8px; height: 8px; border-radius: 1px; background: var(--line-strong); flex: 0 0 auto; }
+.kpi.el span::before { background: var(--el); }
+.kpi.heat span::before { background: var(--heat); }
+.charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+.chart h4 { margin: 0 0 4px; font-size: var(--text-sm); font-weight: 700; color: var(--ink-2); }
 .chart svg { width: 100%; height: auto; display: block; }
-.chart svg text { fill: var(--ink-3); font: 10.5px var(--font-ui); }
+.chart svg text { fill: var(--ink-3); font: 11px var(--font-body); }
 .chart .grid { stroke: var(--line); stroke-width: 1; }
 .tables { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .tbl-wrap { overflow-x: auto; min-width: 0; }
-table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
-th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
-th { color: var(--ink-3); font-weight: 600; font-size: 11.5px; }
-td.n, th.n { text-align: right; font-family: var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.pill { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
-.pill.ok { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
-.pill.warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
-.tcap { caption-side: bottom; text-align: left; color: var(--ink-3); font-size: 11.5px; padding-top: 6px; }
-.warnline { color: var(--warn); display: inline-block; margin-top: 2px; }
+table { border-collapse: collapse; width: 100%; font-size: var(--text-sm); }
+th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--ink-3); font-weight: 700; font-size: var(--text-xs); }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pill { display: inline-block; padding: 0 8px; border-radius: var(--r); font-size: var(--text-xs); font-weight: 700; white-space: nowrap; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
 .pill.none { background: var(--surface-2); color: var(--ink-3); }
-.howto { margin-top: 12px; padding: 10px 12px; background: var(--surface-2); border-radius: var(--r); font-size: 12.5px; }
-.howto ol { margin: 4px 0 0; padding-left: 18px; }
+.tcap { caption-side: bottom; text-align: left; color: var(--ink-3); font-size: var(--text-xs); padding-top: 8px; }
+.warnline { color: var(--warn); display: inline-block; margin-top: 2px; }
+.howto { margin-top: 12px; padding: 12px; background: var(--surface-2); border-radius: var(--r); font-size: var(--text-sm); }
+.howto ol { margin: 4px 0 0; padding-left: 20px; }
 
 .toast {
-  position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 1000; background: var(--ink); color: var(--bg);
-  padding: 9px 16px; border-radius: var(--r); font-size: 13px; max-width: calc(100% - 32px); box-shadow: 0 6px 18px rgb(0 0 0 / .25);
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; background: var(--ink); color: var(--paper);
+  padding: 8px 16px; border-radius: var(--r); font-size: var(--text-sm); max-width: calc(100% - 32px); box-shadow: 0 8px 20px var(--shadow);
 }
-.toast.error { background: var(--bad); color: #fff; }
-.tip { position: fixed; z-index: 1001; pointer-events: none; background: var(--ink); color: var(--bg); padding: 5px 8px;
-  border-radius: 4px; font-size: 12px; font-family: var(--font-num); white-space: nowrap; }
+.toast.error { background: var(--bad); color: var(--on-bad); }
+.tip { position: fixed; z-index: 1001; pointer-events: none; background: var(--ink); color: var(--paper); padding: 4px 8px;
+  border-radius: var(--r); font-size: var(--text-xs); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-.leaflet-container { font-family: var(--font-ui); background: var(--surface-2); }
-.leaflet-tooltip.bt { font-size: 12px; }
+.leaflet-container { font-family: var(--font-body); background: var(--surface-2); }
+.leaflet-tooltip.bt { font-size: var(--text-xs); }
+.leaflet-container .leaflet-control-attribution { background: var(--surface); color: var(--ink-2); }
+.leaflet-container .leaflet-control-attribution a { color: var(--accent); }
+
+.docslink { color: var(--accent); font-weight: 700; font-size: var(--text-sm); }
+.docslink:hover { color: var(--accent-hover); }
+.docs-dialog { width: 100%; max-width: 900px; max-height: calc(100dvh - 48px); border: 1px solid var(--line); border-radius: var(--r-lg);
+  background: var(--surface); color: var(--ink); padding: 0; overflow: hidden; }
+.docs-dialog[open] { display: flex; flex-direction: column; }
+.docs-dialog::backdrop { background: var(--scrim); }
+.docs-dialog header { flex: 0 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 8px 16px; background: var(--surface); border-top: 4px solid var(--brand-yellow); border-bottom: 1px solid var(--line); }
+.docs-dialog header strong { font-family: var(--font-display); font-weight: 400; font-size: var(--text-lg); color: var(--accent); }
+.docs-body { overflow-y: auto; min-height: 0; padding: 4px 20px 24px; font-size: var(--text-md); line-height: 1.55; }
+.docs-body h1, .docs-body h2 { font-family: var(--font-display); font-weight: 400; color: var(--accent); }
+.docs-body h1 { font-size: 24px; }
+.docs-body h2 { font-size: var(--text-xl); margin-top: 1.6em; }
+.docs-body table { display: block; overflow-x: auto; font-size: var(--text-sm); }
+.docs-body pre { background: var(--surface-2); padding: 12px; overflow-x: auto; font-size: var(--text-sm); }
+.docs-body a { color: var(--accent); word-break: break-word; }
 
 @media (max-width: 900px) {
-  .layout { grid-template-columns: 1fr; height: auto; }
-  .panel { border-right: 0; overflow: visible; }
-  .stage { order: -1; }
+  .top { position: static; }
+  .layout { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+  .panel { border-right: 0; }
+  .stage { order: -1; position: static; height: auto; }
   .map { height: 52vh; flex: none; }
   .results { max-height: none; }
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .charts, .tables { grid-template-columns: 1fr; }
+  .kpi:nth-child(3) { border-left: 0; }
+  .kpi:nth-child(n+3) { border-top: 1px solid var(--line); }
+  .charts, .tables { grid-template-columns: minmax(0, 1fr); }
+  .brand-org { padding-left: 0; border-left: 0; flex-basis: 100%; }
 }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+  .btn:active, .iconbtn:active { transform: none; }
+}
 
-.docslink { color: var(--accent); font-weight: 600; font-size: 13px; }
-.docs-dialog { width: min(900px, calc(100vw - 32px)); max-height: calc(100vh - 48px); border: 1px solid var(--line); border-radius: 8px;
-  background: var(--surface); color: var(--ink); padding: 0; }
-.docs-dialog::backdrop { background: rgb(0 0 0 / .45); }
-.docs-dialog header { position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center; gap: 12px;
-  padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
-.docs-body { padding: 4px 20px 24px; font-size: 14px; line-height: 1.55; }
-.docs-body h1 { font-size: 20px; color: var(--accent); }
-.docs-body h2 { font-size: 16px; color: var(--accent); margin-top: 1.6em; }
-.docs-body table { display: block; overflow-x: auto; font-size: 12.5px; }
-.docs-body pre { background: var(--surface-2); padding: 10px; overflow-x: auto; font-size: 12.5px; }
-.docs-body a { color: var(--accent); word-break: break-word; }
-
-.keybox { display: flex; align-items: center; gap: 6px; color: var(--ink-2); font-size: 13px; }
-.keybox input { width: 13.5em; font-family: var(--font-num); font-size: 12px; padding: 4px 7px; }
+.keybox { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: var(--text-sm); }
+.keybox input { width: 13.5em; font-family: var(--font-code); font-size: var(--text-xs); }
 .privacy { color: var(--ink-3); }
 @media (max-width: 900px) { .keybox input { width: 100%; } .keybox { flex: 1 1 100%; } }
 
@@ -929,6 +1011,7 @@ td.n, th.n { text-align: right; font-family: var(--font-num); font-variant-numer
   <div class="brand">
     <span class="brand-name">Rakennushaku</span>
     <span class="brand-sub">tilan rakennukset → Maatilan hybridienergialaskuri</span>
+    <span class="brand-org">SEAMK Maatalous ja energia</span>
   </div>
   <div class="top-meta">
     <span id="areaChip" class="chip" hidden></span>
@@ -946,7 +1029,7 @@ td.n, th.n { text-align: right; font-family: var(--font-num); font-variant-numer
   <aside class="panel" id="panel">
 
     <section class="step" id="step1">
-      <h2><span class="num">1</span>Tila</h2>
+      <div class="step-head"><span class="num" aria-hidden="true">1</span><h2>Tila</h2></div>
       <form id="ktForm" class="row">
         <label for="kt" class="sr">Kiinteistötunnus tai osoite</label>
         <input id="kt" name="kt" placeholder="Kiinteistötunnus tai osoite, esim. Kampusranta 11, Seinäjoki" autocomplete="off" inputmode="numeric">
@@ -960,7 +1043,7 @@ td.n, th.n { text-align: right; font-family: var(--font-num); font-variant-numer
     </section>
 
     <section class="step" id="step2">
-      <h2><span class="num">2</span>Rakennukset laskentaan</h2>
+      <div class="step-head"><span class="num" aria-hidden="true">2</span><h2>Rakennukset laskentaan</h2></div>
       <div class="row wrap">
         <label for="mainUse" class="inline">Tuotantorakennusten käyttö
           <select id="mainUse"></select>
@@ -972,7 +1055,7 @@ td.n, th.n { text-align: right; font-family: var(--font-num); font-variant-numer
     </section>
 
     <section class="step" id="step3">
-      <h2><span class="num">3</span>Nykyinen energiankulutus</h2>
+      <div class="step-head"><span class="num" aria-hidden="true">3</span><h2>Nykyinen energiankulutus</h2></div>
       <p class="hint">Kulutus annetaan sähkömittareittain ja lämmityspiireittäin, koska tieto tulee laskuilta ja mittareilta, ei rakennuksittain. Vuoden pitää olla sama kuin tarkasteluvuosi.</p>
       <div id="groupCards"></div>
       <div class="row wrap">
@@ -982,7 +1065,7 @@ td.n, th.n { text-align: right; font-family: var(--font-num); font-variant-numer
     </section>
 
     <section class="step" id="step4">
-      <h2><span class="num">4</span>Säätiedot</h2>
+      <div class="step-head"><span class="num" aria-hidden="true">4</span><h2>Säätiedot</h2></div>
       <p class="hint">Ulkolämpötila samalta vuodelta kuin kulutustiedot. Lähin FMI:n asema on yleensä paras; Open-Meteo antaa arvion suoraan tilan kohdalle.</p>
       <div id="stationList" class="stations"><p class="empty">Asemat haetaan, kun tila on valittu.</p></div>
       <div class="row wrap">
@@ -994,21 +1077,21 @@ td.n, th.n { text-align: right; font-family: var(--font-num); font-variant-numer
     </section>
 
     <section class="step" id="stepPrice">
-      <h2><span class="num">5</span>Sähkön pörssihinta</h2>
+      <div class="step-head"><span class="num" aria-hidden="true">5</span><h2>Sähkön pörssihinta</h2></div>
       <p class="hint">Suomen alueen tuntihinnat tarkasteluvuodelle laskurin <em>Hintahistoria</em>-välilehdelle (€/MWh, alv 0). Hinnat haetaan Sähkötin-palvelusta, joka välittää Nord Poolin dataa ei-kaupalliseen käyttöön.</p>
       <div class="row wrap">
         <button type="button" class="btn" id="fetchPrices">Hae vuoden hinnat</button>
-        <button type="button" class="btn small" id="fetchAllPrices">Hae kaikki laskurin vuodet 2023–2026</button>
+        <button type="button" class="btn small" id="fetchAllPrices">Hae kaikki laskurin vuodet (2023 alkaen)</button>
       </div>
       <div id="priceSummary" class="summary" hidden></div>
       <div class="row wrap" id="priceActions" hidden>
         <button type="button" class="btn small" id="dlPrices">Lataa Hintahistoria-CSV</button>
-        <button type="button" class="btn small" id="copyPrices">Kopioi sarakkeet C–F</button>
+        <button type="button" class="btn small" id="copyPrices">Kopioi sarakkeet C:F</button>
       </div>
     </section>
 
     <section class="step" id="step5">
-      <h2><span class="num">6</span>Energiaprofiili</h2>
+      <div class="step-head"><span class="num" aria-hidden="true">6</span><h2>Energiaprofiili</h2></div>
       <button type="button" class="btn primary wide" id="runModel">Laske tuntiprofiili</button>
       <div id="checklist" class="checklist"></div>
       <div class="row wrap">
@@ -1032,9 +1115,10 @@ td.n, th.n { text-align: right; font-family: var(--font-num); font-variant-numer
 <dialog id="docsDialog" class="docs-dialog" aria-label="Menetelmät ja lähteet"><header><strong>Menetelmät, oletukset ja lähteet</strong><button type="button" class="btn small" id="docsClose">Sulje</button></header><div class="docs-body"><h1 id="rakennushaku-menetelmät-ja-lähteet">Rakennushaku – menetelmät ja
 lähteet</h1>
 <p><strong>Versio:</strong> 0.5.0 · <strong>Päivitetty:</strong>
-31.10.2026<br />
+1.11.2026<br />
 <strong>Tekijät:</strong> Miiro Jääskeläinen ja Suvi Karirinne,
-Seinäjoen ammattikorkeakoulu<br />
+Seinäjoen ammattikorkeakoulu (SEAMK), Maatalous ja energia
+-tutkimusryhmä<br />
 <strong>Hanke:</strong> EIP CHP Energiaälykäs eteläpohjalainen maatila
 (EU:n osarahoittama)<br />
 <strong>Liittyy:</strong> Maatilan hybridienergialaskuri, versio 0.9.3
@@ -1695,7 +1779,7 @@ ei ole täydellinen, joten mallia ei voi ajaa ennen vuoden loppua. Hinnat
 voi silti hakea.</li>
 <li><strong>API-avain ja käyttöehdot julkisessa palvelussa</strong>
 (pieni). Selainversiossa jokainen käyttäjä tarvitsee oman MML-avaimen.
-Jos SeAMK tarjoaa sovellusta palveluna, Open-Meteon ja Sähkötinin
+Jos SEAMK tarjoaa sovellusta palveluna, Open-Meteon ja Sähkötinin
 ei-kaupallisen käytön ehdot on tarkistettava.</li>
 </ol>
 <h2 id="lähdeluettelo">13. Lähdeluettelo</h2>
@@ -3021,7 +3105,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       } else {
         lyr = L.geoJSON(b.geometry, { style: () => style });
       }
-      lyr.bindTooltip(`${esc(b.name)}<br>${esc(b.class_label)}${b.footprint_m2 ? ` · ${fmt(b.footprint_m2)} m²` : ""}`, { className: "bt", sticky: true });
+      lyr.bindTooltip(`${esc(b.name)}<br>${esc(b.class_label)}${b.footprint_m2 ? `<br>${fmt(b.footprint_m2)} m²` : ""}`, { className: "bt", sticky: true });
       lyr.on("click", (ev) => { L.DomEvent.stopPropagation(ev); toggleHeated(b.id); focusBuilding(b.id); });
       lyr.addTo(layers.buildings);
       shapes[b.id] = lyr;
@@ -3035,7 +3119,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     drawArea();
     if (layers.area) map.fitBounds(layers.area.getBounds(), { padding: [30, 30], maxZoom: 17 });
     const chip = $("#areaChip");
-    chip.textContent = a.kind === "property" ? `Kiinteistö ${a.display} · ${fmt(a.area_ha, 1)} ha` : a.display;
+    chip.textContent = a.kind === "property" ? `Kiinteistö ${a.display}, ${fmt(a.area_ha, 1)} ha` : a.display;
     chip.hidden = false;
     loadStations();
   }
@@ -3127,7 +3211,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       return;
     }
     host.innerHTML = state.buildings.map((b) => {
-      const meta = [b.class_label, b.footprint_m2 ? `pohja ${fmt(b.footprint_m2)} m² × ${b.floors} krs` : "pistekohde, ala ei tiedossa"].join(" · ");
+      const meta = [b.class_label, b.footprint_m2 ? `pohja ${fmt(b.footprint_m2)} m² × ${b.floors} krs` : "pistekohde, ala ei tiedossa"].join(", ");
       const body = b.heated ? `
         <div class="bbody">
           <label class="full">Nimi<input data-f="name" value="${esc(b.name)}"></label>
@@ -3229,7 +3313,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     return `<div class="gcard" data-type="${type}" data-id="${esc(g.id)}">
       <header><span class="gtype ${type}"></span><input data-g="name" value="${esc(g.name)}" aria-label="Nimi">
         ${list.length > 1 ? `<button type="button" class="iconbtn" data-del="1" title="Poista" aria-label="Poista">×</button>` : ""}</header>
-      <div class="gmembers">${type === "heat" ? "Lämpö" : "Sähkö"} · ${members.length ? members.map((b) => esc(b.name)).join(", ") : "ei rakennuksia"}</div>
+      <div class="gmembers">${type === "heat" ? "Lämpö" : "Sähkö"}: ${members.length ? members.map((b) => esc(b.name)).join(", ") : "ei rakennuksia"}</div>
       <div class="seg" role="group">${KINDS.map(([k, l]) => `<button type="button" data-kind="${k}" class="${d.kind === k ? "on" : ""}">${l}</button>`).join("")}</div>
       ${input}${eff}${opts}
       ${d.kind === "none" ? `<p class="hint">Ilman kulutustietoa tulos on mallin oletus eikä kuvaa tilaa.</p>` : ""}
@@ -3315,7 +3399,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     const rows = state.stations.map((s) => `
       <label class="station${ch.type === "fmi" && ch.fmisid === s.fmisid ? " on" : ""}">
         <input type="radio" name="wx" data-fmisid="${s.fmisid}" ${ch.type === "fmi" && ch.fmisid === s.fmisid ? "checked" : ""}>
-        <span>${esc(s.name)}<small>FMI-asema ${s.fmisid}${s.begin ? ` · havainnot ${s.begin.slice(0, 4)}–` : ""}</small></span>
+        <span>${esc(s.name)}<small>FMI-asema ${s.fmisid}${s.begin ? `, havainnot vuodesta ${s.begin.slice(0, 4)}` : ""}</small></span>
         <span class="dist">${fmt(s.distance_km, 1)} km</span>
       </label>`).join("");
     host.innerHTML = rows + `
@@ -3372,9 +3456,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     if (!w) { el.hidden = true; return; }
     el.hidden = false;
     el.innerHTML = `<strong>${esc(w.label)}</strong>, vuosi ${state.year}<br>
-      <span class="nums">ka ${fmt(w.mean, 1)} °C · min ${fmt(w.min, 1)} · max ${fmt(w.max, 1)}</span><br>
+      <span class="nums">keskiarvo ${fmt(w.mean, 1)} °C, min ${fmt(w.min, 1)}, max ${fmt(w.max, 1)}</span><br>
       ${w.interpolated ? `${fmt(w.interpolated)} tuntia interpoloitu. ` : ""}${w.patched ? `${fmt(w.patched)} tuntia täydennetty Open-Meteosta. ` : ""}
-      ${w.missing ? `<span style="color:var(--bad)">${fmt(w.missing)} tuntia puuttuu – valitse toinen lähde.</span>` : "Sarja on täydellinen."}`;
+      ${w.missing ? `<span style="color:var(--bad)">${fmt(w.missing)} tuntia puuttuu. Valitse toinen lähde.</span>` : "Sarja on täydellinen."}`;
   }
 
   // ------------------------------------------------------------------ model
@@ -3402,8 +3486,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     el.hidden = false;
     const lines = [];
     if (p) {
-      lines.push(`<strong>${state.year}</strong>: <span class="nums">${fmt(p.hours)}</span> / 8 760 tuntia · ka <span class="nums">${fmt(p.mean, 2)}</span> €/MWh ·
-        min <span class="nums">${fmt(p.min, 2)}</span> · max <span class="nums">${fmt(p.max, 2)}</span> · negatiivisia <span class="nums">${fmt(p.negative)}</span> h`);
+      lines.push(`<strong>${state.year}</strong>: <span class="nums">${fmt(p.hours)}</span> / 8 760 tuntia, keskiarvo <span class="nums">${fmt(p.mean, 2)}</span> €/MWh,
+        min <span class="nums">${fmt(p.min, 2)}</span>, max <span class="nums">${fmt(p.max, 2)}</span>, negatiivisia <span class="nums">${fmt(p.negative)}</span> h`);
       if (p.missing) lines.push(p.future >= p.missing - 1
         ? `Vuosi on kesken: ${fmt(p.missing)} tuntia puuttuu. Laskuri täyttää puuttuvat tunnit muiden vuosien keskiarvolla.`
         : `<span style="color:var(--warn)">${fmt(p.missing)} tuntia puuttuu lähteestä.</span>`);
@@ -3519,10 +3603,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       <td class="n">${fmt(b.heat_kwh / 1000, 1)}</td><td class="n">${fmt(b.heat_peak_kw, 1)}</td></tr>`).join("");
     host.innerHTML = `
       <div class="res-head">
-        <h3>Tuntiprofiili ${r.year} · ${esc(state.area?.display || "")}</h3>
+        <h3>Tuntiprofiili ${r.year}${state.area?.display ? `, ${esc(state.area.display)}` : ""}</h3>
         <div class="res-actions">
           <button type="button" class="btn small primary" id="dlCsv">Lataa CSV laskuriin</button>
-          <button type="button" class="btn small" id="copyEF">Kopioi sarakkeet E–F</button>
+          <button type="button" class="btn small" id="copyEF">Kopioi sarakkeet E:F</button>
         </div>
       </div>
       <div class="kpis">
@@ -3541,7 +3625,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       </div>
       <div class="howto"><strong>Laskuriin vienti</strong>
         <ol>
-          <li>Avaa ladattu CSV Excelissä. Kopioi sen sarakkeet E–F (rivit 2–8 761) tai käytä painiketta <em>Kopioi sarakkeet E–F</em>.</li>
+          <li>Avaa ladattu CSV Excelissä. Kopioi sen sarakkeet E–F (rivit 2–8 761) tai käytä painiketta <em>Kopioi sarakkeet E:F</em>.</li>
           <li>Liitä laskurin <em>Oma kulutusdata</em> -välilehdelle soluun E2: Liitä määräten → Arvot.</li>
           <li>Valitse Ohjauspaneelin solusta D4 <em>Oma data</em> ja tarkista K11–L11 sekä K14.</li>
           ${state.prices[r.year] ? `<li>Kopioi CSV:n sarake H (pörssihinta) ja liitä se <em>Hintahistoria</em>-välilehdelle vuoden ${r.year} sarakkeeseen riville 2 (${({2023: "C", 2024: "D", 2025: "E", 2026: "F"})[r.year] || "vuoden sarake"}2). Valitse Ohjauspaneelista K22 = Pörssihinta ja K49 = ${r.year}.</li>` : `<li>Pörssihinnat voi hakea kohdassa 5; ne tulevat CSV:n sarakkeeksi H.</li>`}
@@ -3606,7 +3690,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     if (layers.area) map.fitBounds(layers.area.getBounds(), { padding: [30, 30], maxZoom: 17 });
     if (state.area) {
       const chip = $("#areaChip");
-      chip.textContent = state.area.kind === "property" ? `Kiinteistö ${state.area.display} · ${fmt(state.area.area_ha, 1)} ha` : state.area.display;
+      chip.textContent = state.area.kind === "property" ? `Kiinteistö ${state.area.display}, ${fmt(state.area.area_ha, 1)} ha` : state.area.display;
       chip.hidden = false;
       $("#kt").value = state.area.kind === "property" ? state.area.display : "";
       loadStations();
@@ -3688,7 +3772,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   }
 
   // ------------------------------------------------------------------ boot
+  // The map stage sits below the sticky top bar, whose height changes when it wraps.
+  function syncTopHeight() { document.documentElement.style.setProperty("--top-h", $(".top").offsetHeight + "px"); }
+  if (window.ResizeObserver) new ResizeObserver(syncTopHeight).observe($(".top"));
+  else window.addEventListener("resize", syncTopHeight);
+
   async function boot() {
+    syncTopHeight();
     const ys = $("#year");
     const cy = new Date().getFullYear();
     for (let y = cy; y >= cy - 8; y--) ys.insertAdjacentHTML("beforeend", `<option value="${y}">${y}</option>`);
@@ -3706,7 +3796,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     $("#mainUse").innerHTML = ["broileri", "lihasika", "emakko", "navetta", "muu"].map((k) => `<option value="${k}">${esc(META.use_types[k]?.label || k)}</option>`).join("");
     updateKeyUi();
     const at = META.attribution || {};
-    $("#attrib").innerHTML = [at.mml, at.fmi, at.open_meteo, at.prices].filter(Boolean).map((s) => `<span>${esc(s)}</span>`).join("") + `<span>Rakennushaku ${esc(META.version || "")} · EIP CHP Energiaälykäs eteläpohjalainen maatila · SeAMK · prototyyppi, ei takuuta · koodi MIT-lisenssillä</span>`;
+    $("#attrib").innerHTML = [at.mml, at.fmi, at.open_meteo, at.prices].filter(Boolean).map((s) => `<span>${esc(s)}</span>`).join("") + `<span>Rakennushaku ${esc(META.version || "")}, prototyyppi ilman takuuta. Koodi MIT-lisenssillä.</span><span>SEAMK, Maatalous ja energia -tutkimusryhmä. EIP CHP Energiaälykäs eteläpohjalainen maatila -hanke.</span>`;
     initBaseLayers();
     let draft = null;
     try { draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch (_) { draft = null; }

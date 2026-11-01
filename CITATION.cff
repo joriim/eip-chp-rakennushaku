@@ -11,11 +11,11 @@ authors:
   - family-names: "Jääskeläinen"
     given-names: "Miiro"
     orcid: "https://orcid.org/0000-0002-0683-8352"
-    affiliation: "Seinäjoen ammattikorkeakoulu"
+    affiliation: "Seinäjoen ammattikorkeakoulu (SEAMK), Maatalous ja energia -tutkimusryhmä"
   - family-names: "Karirinne"
     given-names: "Suvi"
     orcid: "https://orcid.org/0000-0003-1000-557X"
-    affiliation: "Seinäjoen ammattikorkeakoulu"
+    affiliation: "Seinäjoen ammattikorkeakoulu (SEAMK), Maatalous ja energia -tutkimusryhmä"
 version: "0.5.0"
 date-released: "2026-11-01"
 license: MIT

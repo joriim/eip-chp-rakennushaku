@@ -1,7 +1,7 @@
 # Rakennushaku – menetelmät ja lähteet
 
-**Versio:** 0.5.0 · **Päivitetty:** 31.10.2026  
-**Tekijät:** Miiro Jääskeläinen ja Suvi Karirinne, Seinäjoen ammattikorkeakoulu  
+**Versio:** 0.5.0 · **Päivitetty:** 1.11.2026  
+**Tekijät:** Miiro Jääskeläinen ja Suvi Karirinne, Seinäjoen ammattikorkeakoulu (SEAMK), Maatalous ja energia -tutkimusryhmä  
 **Hanke:** EIP CHP Energiaälykäs eteläpohjalainen maatila (EU:n osarahoittama)  
 **Liittyy:** Maatilan hybridienergialaskuri, versio 0.9.3 [18]
 
@@ -176,7 +176,7 @@ CSV-tiedostoissa on puolipiste-erotin, desimaalipilkku ja UTF-8 BOM suomenkielis
 7. **Mittausdatan laatu** (pieni). Tuntisarjasta ei tunnisteta katkoja, nollia eikä piikkejä.
 8. **CSV-muoto** (pieni). Puolipiste ja desimaalipilkku sopivat suomenkieliseen Exceliin. Muulla kieliasetuksella tiedosto pitää tuoda Tiedot → Tekstistä/CSV:stä -toiminnolla.
 9. **Kesken oleva vuosi** (pieni). Kuluvan vuoden säädata ei ole täydellinen, joten mallia ei voi ajaa ennen vuoden loppua. Hinnat voi silti hakea.
-10. **API-avain ja käyttöehdot julkisessa palvelussa** (pieni). Selainversiossa jokainen käyttäjä tarvitsee oman MML-avaimen. Jos SeAMK tarjoaa sovellusta palveluna, Open-Meteon ja Sähkötinin ei-kaupallisen käytön ehdot on tarkistettava.
+10. **API-avain ja käyttöehdot julkisessa palvelussa** (pieni). Selainversiossa jokainen käyttäjä tarvitsee oman MML-avaimen. Jos SEAMK tarjoaa sovellusta palveluna, Open-Meteon ja Sähkötinin ei-kaupallisen käytön ehdot on tarkistettava.
 
 ## 13. Lähdeluettelo
 
