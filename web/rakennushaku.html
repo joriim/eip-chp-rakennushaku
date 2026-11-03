@@ -799,7 +799,10 @@ code { font-family: var(--font-code); font-size: .92em; }
 .stage-bar { flex: 0 0 auto; display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; padding: 8px 12px;
   background: var(--surface); border-bottom: 1px solid var(--line); }
 .v3d-opts { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; min-width: 0; }
-.v3d-legend { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--ink-3); font-size: var(--text-xs); }
+.v3d-legend { position: absolute; z-index: 2; left: 12px; bottom: 36px; max-width: calc(100% - 24px); display: grid; gap: 4px;
+  padding: 8px 12px; border-radius: var(--r); background: var(--surface); color: var(--ink-2); font-size: var(--text-xs); box-shadow: 0 2px 8px var(--shadow); }
+.v3d-scale { display: flex; align-items: center; gap: 8px; }
+.v3d-hint { color: var(--ink-3); }
 .v3d-legend .ramp { width: 72px; height: 8px; border-radius: 2px; }
 .v3d-legend .ramp.heat { background: linear-gradient(90deg, color-mix(in srgb, var(--heat) 15%, var(--surface)), var(--heat)); }
 .v3d-legend .ramp.el { background: linear-gradient(90deg, color-mix(in srgb, var(--el) 15%, var(--surface)), var(--el)); }
@@ -967,6 +970,8 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space:
 .pill.none { background: var(--surface-2); color: var(--ink-3); }
 .tcap { caption-side: bottom; text-align: left; color: var(--ink-3); font-size: var(--text-xs); padding-top: 8px; }
 .warnline { color: var(--warn); display: inline-block; margin-top: 2px; }
+.results.stale .kpis, .results.stale .charts, .results.stale .tables { opacity: .5; }
+.stale-note { margin: 0 0 12px; padding: 8px 12px; border-radius: var(--r); background: var(--warn-soft); color: var(--warn); font-size: var(--text-sm); }
 .howto { margin-top: 12px; padding: 12px; background: var(--surface-2); border-radius: var(--r); font-size: var(--text-sm); }
 .howto ol { margin: 4px 0 0; padding-left: 20px; }
 
@@ -1144,13 +1149,13 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space:
             <option value="pick">Valinta</option>
           </select>
         </label>
-        <span id="v3dLegend" class="v3d-legend"></span>
       </div>
     </div>
     <div class="mapwrap">
       <div id="map" class="map" aria-label="Kartta"></div>
       <div id="map3d" class="map3d" aria-label="3D-näkymä" hidden></div>
       <p id="v3dStatus" class="v3d-status" role="status" hidden></p>
+      <div id="v3dLegend" class="v3d-legend" hidden></div>
     </div>
     <div id="modeBanner" class="mode-banner" hidden></div>
     <section id="results" class="results" hidden aria-live="polite"></section>
@@ -2095,7 +2100,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
    - CesiumJS 1.146.0 (Apache-2.0), optional: a 3D globe. Loaded on demand from the jsDelivr CDN (or window.RH_CESIUM_BASE),
      no Cesium ion token, no ion terrain: buildings stand on the ellipsoid.
    A scene is {features: GeoJSON FeatureCollection, bounds: [w, s, e, n], tiles: {url, maxzoom, attribution}}.
-   Each feature carries properties {id, name, h (m), color (hex), label (HTML-safe text)}. */
+   Each feature carries properties {id, name, h (m), color (hex), label (HTML-safe text)}.
+   Clicking a building calls RH3D.onPick(id), which the app uses to put the building in or out of the calculation;
+   it returns a promise that settles once the scene has been redrawn, and the popup then shows the new state. */
 (function () {
   "use strict";
 
@@ -2130,12 +2137,19 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
   let current = null; // {kind, destroy()}
 
+  async function picked(id, getScene) {
+    if (window.RH3D.onPick) await window.RH3D.onPick(id);
+    const f = getScene().features.features.find((x) => x.properties.id === id);
+    return f ? f.properties : null;
+  }
+
   function destroy() {
     if (current) { try { current.destroy(); } catch (_) { /* already gone */ } current = null; }
   }
 
   // ---------------------------------------------------------------- MapLibre GL
-  async function showMapLibre(el, scene, base) {
+  async function showMapLibre(el, first, base) {
+    let scene = first;
     loadCss("maplibre", "lib-maplibre-css", base + "vendor/maplibre/maplibre-gl.css");
     await loadScript("maplibre", "lib-maplibre", base + "vendor/maplibre/maplibre-gl.js");
     const ml = window.maplibregl;
@@ -2163,10 +2177,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       attributionControl: { compact: true },
     });
     map.addControl(new ml.NavigationControl({ visualizePitch: true }), "top-right");
-    const popup = new ml.Popup({ closeButton: true, maxWidth: "260px" });
-    map.on("click", "buildings", (e) => {
-      const p = e.features[0].properties;
-      popup.setLngLat(e.lngLat).setHTML(`<strong>${p.name}</strong><br>${p.label}`).addTo(map);
+    const popup = new ml.Popup({ closeButton: true, maxWidth: "260px", offset: 16 });  // offset keeps the building clickable under the popup
+    map.on("click", "buildings", async (e) => {
+      const at = e.lngLat;
+      const p = await picked(e.features[0].properties.id, () => scene);
+      if (p) popup.setLngLat(at).setHTML(`<strong>${p.name}</strong><br>${p.label}`).addTo(map);
     });
     map.on("mouseenter", "buildings", () => { map.getCanvas().style.cursor = "pointer"; });
     map.on("mouseleave", "buildings", () => { map.getCanvas().style.cursor = ""; });
@@ -2175,14 +2190,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     return {
       kind: "maplibre",
       native: map,
-      update(sc) { map.getSource("buildings").setData(sc.features); },
+      update(sc) { scene = sc; map.getSource("buildings").setData(sc.features); },
       resize() { map.resize(); },
       destroy() { map.remove(); delete el.dataset.ready; },
     };
   }
 
   // ---------------------------------------------------------------- CesiumJS
-  async function showCesium(el, scene) {
+  async function showCesium(el, first) {
+    let scene = first;
     const base = cesiumBase();
     window.CESIUM_BASE_URL = base;
     loadCss("cesium", "lib-cesium-css", base + "Widgets/widgets.css");
@@ -2204,17 +2220,21 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     el.appendChild(pop);
     const info = {};
     const clicks = new C.ScreenSpaceEventHandler(viewer.scene.canvas);
-    clicks.setInputAction((ev) => {
+    clicks.setInputAction(async (ev) => {
       const hit = viewer.scene.pick(ev.position);
-      const p = hit && hit.id && info[hit.id.id];
+      const hitInfo = hit && hit.id && info[hit.id.id];
+      if (!hitInfo) { pop.hidden = true; return; }
+      const at = { x: ev.position.x, y: ev.position.y };
+      const p = await picked(hitInfo.id, () => scene);
       if (!p) { pop.hidden = true; return; }
       pop.innerHTML = `<strong>${p.name}</strong><br>${p.label}`;
-      pop.style.left = `${ev.position.x + 12}px`;
-      pop.style.top = `${ev.position.y + 12}px`;
+      pop.style.left = `${at.x + 12}px`;
+      pop.style.top = `${at.y + 12}px`;
       pop.hidden = false;
     }, C.ScreenSpaceEventType.LEFT_CLICK);
 
     function addFeatures(sc) {
+      scene = sc;
       viewer.entities.removeAll();
       for (const k in info) delete info[k];
       pop.hidden = true;
@@ -3391,7 +3411,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       } else {
         lyr = L.geoJSON(b.geometry, { style: () => style });
       }
-      lyr.bindTooltip(`${esc(b.name)}<br>${esc(b.class_label)}${b.footprint_m2 ? `<br>${fmt(b.footprint_m2)} m²` : ""}`, { className: "bt", sticky: true });
+      lyr.bindTooltip(`<strong>${esc(b.name)}</strong><br>${inCalc(b)}<br>${esc(b.class_label)}${b.footprint_m2 ? `<br>${fmt(b.footprint_m2)} m²` : ""}`
+        + `<br><small>Klikkaa: mukaan tai pois laskennasta</small>`, { className: "bt", sticky: true });
       lyr.on("click", (ev) => { L.DomEvent.stopPropagation(ev); toggleHeated(b.id); focusBuilding(b.id); });
       lyr.addTo(layers.buildings);
       shapes[b.id] = lyr;
@@ -3402,6 +3423,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   function setArea(a) {
     state.area = a;
     state.result = null;
+    lastResult = null;
     drawArea();
     if (layers.area) map.fitBounds(layers.area.getBounds(), { padding: [30, 30], maxZoom: 17 });
     const chip = $("#areaChip");
@@ -3455,6 +3477,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     });
     state.result = null;
     renderAll();
+  }
+
+  const SCOPE_TEXT = { both: "lämpö ja sähkö", heat: "vain lämpö", el: "vain sähkö" };
+  function inCalc(b) {
+    return b.heated ? `<b>mukana laskennassa</b> (${SCOPE_TEXT[b.scope || "both"] || "lämpö ja sähkö"})` : "ei mukana laskennassa";
   }
 
   function toggleHeated(id, value) {
@@ -3832,6 +3859,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     state.result = await api("/api/model", { body: { project: projectPayload() } });
     renderResults();
     saveDraft();
+    refresh3d();
   });
 
   function cvPill(rep) {
@@ -3871,14 +3899,21 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p;
   }
 
+  // A change to buildings, consumption or weather makes the result stale. The last result stays on screen, dimmed and
+  // without exports, until the profile is recalculated: the panel does not collapse, so the map does not jump under the cursor.
+  let lastResult = null;
   function renderResults() {
-    const r = state.result, host = $("#results");
+    const host = $("#results");
+    if (state.result) lastResult = state.result;
+    const r = state.result || lastResult;
+    const stale = !state.result;
     if (!r) {
       if (!host.hidden) { host.hidden = true; host.innerHTML = ""; refreshMap(); }
       return;
     }
     const wasHidden = host.hidden;
     host.hidden = false;
+    host.classList.toggle("stale", stale);
     const t = r.totals;
     const names = Object.fromEntries(state.buildings.map((b) => [b.id, b.name]));
     const grpRows = [...r.calibration.circuits.map((c) => ({ ...c, type: "Lämpö" })), ...r.calibration.meters.map((c) => ({ ...c, type: "Sähkö" }))]
@@ -3890,11 +3925,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     host.innerHTML = `
       <div class="res-head">
         <h3>Tuntiprofiili ${r.year}${state.area?.display ? `, ${esc(state.area.display)}` : ""}</h3>
-        <div class="res-actions">
-          <button type="button" class="btn small primary" id="dlCsv">Lataa CSV laskuriin</button>
-          <button type="button" class="btn small" id="copyEF">Kopioi sarakkeet E:F</button>
+        <div class="res-actions">${stale
+          ? `<button type="button" class="btn small primary" id="rerunModel"${$("#runModel").disabled ? " disabled" : ""}>Laske uudelleen</button>`
+          : `<button type="button" class="btn small primary" id="dlCsv">Lataa CSV laskuriin</button>
+          <button type="button" class="btn small" id="copyEF">Kopioi sarakkeet E:F</button>`}
         </div>
       </div>
+      ${stale ? `<p class="stale-note" role="status">Valinnat ovat muuttuneet. Luvut ovat edellisestä laskennasta${$("#runModel").disabled ? "; valitse ensin rakennukset ja säätiedot" : ""}.</p>` : ""}
       <div class="kpis">
         <div class="kpi el"><b>${fmt(t.electricity_kwh / 1000, 1)}</b><span>Sähkö, MWh/v</span></div>
         <div class="kpi el"><b>${fmt(t.electricity_peak_kw, 1)}</b><span>Sähkön huipputeho, kW</span></div>
@@ -3918,6 +3955,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         </ol>
         Laskurin aurinkosähkö- ja lämpöpumppulaskenta käyttää vielä laskurin omaa esimerkkivuotta. Ulkolämpötila (sarake G) on mukana CSV:ssä myöhempää käyttöä varten.
       </div>`;
+    if (stale) {
+      const rr = $("#rerunModel");
+      if (rr) rr.onclick = () => $("#runModel").click();
+      if (wasHidden) refreshMap();
+      return;
+    }
     $("#dlCsv").onclick = (e) => busy(e.currentTarget, "Ladataan…", async () => {
       const pr = state.prices[r.year];
       const csv = await api("/api/export/csv", { body: { project: projectPayload(), prices: pr ? pr.values : null } });
@@ -3970,6 +4013,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   }
   function loadState(s) {
     state = { ...blankState(), ...s, result: null, stations: [] };
+    lastResult = null;
     $("#year").value = state.year;
     $("#mainUse").value = state.mainUse;
     drawArea();
@@ -4076,7 +4120,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     const features = list.map((b) => {
       const r = per[b.id];
       const h = Math.max(1, b.floors || 1) * FLOOR_H;
-      const lines = [esc(b.class_label), b.footprint_m2 ? `pohja ${fmt(b.footprint_m2)} m²` : "", `korkeus noin ${fmt(h, 1)} m`];
+      const lines = [inCalc(b), esc(b.class_label), b.footprint_m2 ? `pohja ${fmt(b.footprint_m2)} m²` : "", `korkeus noin ${fmt(h, 1)} m`];
       if (r) lines.push(`sähkö ${fmt(r.electricity_kwh / 1000, 1)} MWh/v`, `lämpö ${fmt(r.heat_kwh / 1000, 1)} MWh/v`);
       let color;
       if (colour === "pick") color = b.heated ? ((b.scope || "both") === "el" ? elC : heatC) : b.on_property ? grey : nb;
@@ -4098,15 +4142,18 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   function renderLegend(sc) {
     const el = $("#v3dLegend");
     if (!sc) { el.innerHTML = ""; return; }
-    const height = `<span>Korkeus: kerrokset × ${fmt(FLOOR_H, 1)} m (arvio)</span>`;
+    const height = `<span class="v3d-hint">Korkeus: kerrokset × ${fmt(FLOOR_H, 1)} m (arvio)</span><span class="v3d-hint">Klikkaa rakennusta: mukaan tai pois</span>`;
     if (sc.colour === "pick") {
-      el.innerHTML = (state.result ? "" : "<span>Laske tuntiprofiili, niin väri kertoo kulutuksen.</span>") + height;
+      el.innerHTML = `<span class="v3d-hint">${state.result ? "Väri: valinta" : "Laske tuntiprofiili, niin väri kertoo kulutuksen"}</span>` + height;
       return;
     }
     const cls = sc.colour === "el" ? "el" : "heat";
-    el.innerHTML = `<span class="ramp-label">0</span><span class="ramp ${cls}" aria-hidden="true"></span>`
-      + `<span class="ramp-label">${fmt(sc.max / 1000, 1)} MWh/v</span>${height}`;
+    el.innerHTML = `<span class="v3d-scale"><span class="ramp-label">0</span><span class="ramp ${cls}" aria-hidden="true"></span>`
+      + `<span class="ramp-label">${fmt(sc.max / 1000, 1)} MWh/v</span></span>${height}`;
   }
+
+  // Clicking a building in 3D puts it in or out of the calculation, as on the 2D map.
+  RH3D.onPick = (id) => { toggleHeated(id); focusBuilding(id); return v3dChain; };
 
   function status3d(text, isError) {
     const el = $("#v3dStatus");
@@ -4144,6 +4191,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     }
     $("#v3dOpts").hidden = v !== "3d";
     $("#map3d").hidden = v !== "3d";
+    $("#v3dLegend").hidden = v !== "3d";
     if (v === "2d") {
       v3dChain = v3dChain.then(() => RH3D.destroy());
       status3d("");

@@ -10,6 +10,7 @@
 - Sivu vierii vaiheiden mukana ja kartta pysyy näkyvissä niiden vieressä. Painikkeet ja kentät 32–40 px, näkyvä fokus, tilamerkit tekstinä eikä väripisteinä.
 - Nimi kirjoitetaan SEAMK; tekijöiden affiliaatioon lisätty Maatalous ja energia -tutkimusryhmä.
 - 3D-näkymä: rakennukset kolmiulotteisina ilmakuvan päällä, väri mallinnetun lämmöntarpeen tai sähkön mukaan. Oletuksena MapLibre GL JS 5.24.0 (mukana sovelluksessa), vaihtoehtona CesiumJS 1.146.0 (ladataan jsDelivristä, vain verkossa julkaistussa versiossa). Korkeus arvioidaan kerrosluvusta.
+- Rakennusta klikkaamalla se tulee mukaan laskentaan tai poistuu siitä myös 3D-näkymässä; ponnahdusikkuna ja työkaluvihje kertovat tilan. Kun valinnat muuttuvat, edellinen tulos jää näkyviin himmennettynä ja *Laske uudelleen* -painikkeen kanssa, joten kartta ei hyppää.
 
 ## 0.4.1 – 2026-10-31
 

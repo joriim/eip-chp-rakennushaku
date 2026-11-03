@@ -4,7 +4,9 @@
    - CesiumJS 1.146.0 (Apache-2.0), optional: a 3D globe. Loaded on demand from the jsDelivr CDN (or window.RH_CESIUM_BASE),
      no Cesium ion token, no ion terrain: buildings stand on the ellipsoid.
    A scene is {features: GeoJSON FeatureCollection, bounds: [w, s, e, n], tiles: {url, maxzoom, attribution}}.
-   Each feature carries properties {id, name, h (m), color (hex), label (HTML-safe text)}. */
+   Each feature carries properties {id, name, h (m), color (hex), label (HTML-safe text)}.
+   Clicking a building calls RH3D.onPick(id), which the app uses to put the building in or out of the calculation;
+   it returns a promise that settles once the scene has been redrawn, and the popup then shows the new state. */
 (function () {
   "use strict";
 
@@ -39,12 +41,19 @@
 
   let current = null; // {kind, destroy()}
 
+  async function picked(id, getScene) {
+    if (window.RH3D.onPick) await window.RH3D.onPick(id);
+    const f = getScene().features.features.find((x) => x.properties.id === id);
+    return f ? f.properties : null;
+  }
+
   function destroy() {
     if (current) { try { current.destroy(); } catch (_) { /* already gone */ } current = null; }
   }
 
   // ---------------------------------------------------------------- MapLibre GL
-  async function showMapLibre(el, scene, base) {
+  async function showMapLibre(el, first, base) {
+    let scene = first;
     loadCss("maplibre", "lib-maplibre-css", base + "vendor/maplibre/maplibre-gl.css");
     await loadScript("maplibre", "lib-maplibre", base + "vendor/maplibre/maplibre-gl.js");
     const ml = window.maplibregl;
@@ -72,10 +81,11 @@
       attributionControl: { compact: true },
     });
     map.addControl(new ml.NavigationControl({ visualizePitch: true }), "top-right");
-    const popup = new ml.Popup({ closeButton: true, maxWidth: "260px" });
-    map.on("click", "buildings", (e) => {
-      const p = e.features[0].properties;
-      popup.setLngLat(e.lngLat).setHTML(`<strong>${p.name}</strong><br>${p.label}`).addTo(map);
+    const popup = new ml.Popup({ closeButton: true, maxWidth: "260px", offset: 16 });  // offset keeps the building clickable under the popup
+    map.on("click", "buildings", async (e) => {
+      const at = e.lngLat;
+      const p = await picked(e.features[0].properties.id, () => scene);
+      if (p) popup.setLngLat(at).setHTML(`<strong>${p.name}</strong><br>${p.label}`).addTo(map);
     });
     map.on("mouseenter", "buildings", () => { map.getCanvas().style.cursor = "pointer"; });
     map.on("mouseleave", "buildings", () => { map.getCanvas().style.cursor = ""; });
@@ -84,14 +94,15 @@
     return {
       kind: "maplibre",
       native: map,
-      update(sc) { map.getSource("buildings").setData(sc.features); },
+      update(sc) { scene = sc; map.getSource("buildings").setData(sc.features); },
       resize() { map.resize(); },
       destroy() { map.remove(); delete el.dataset.ready; },
     };
   }
 
   // ---------------------------------------------------------------- CesiumJS
-  async function showCesium(el, scene) {
+  async function showCesium(el, first) {
+    let scene = first;
     const base = cesiumBase();
     window.CESIUM_BASE_URL = base;
     loadCss("cesium", "lib-cesium-css", base + "Widgets/widgets.css");
@@ -113,17 +124,21 @@
     el.appendChild(pop);
     const info = {};
     const clicks = new C.ScreenSpaceEventHandler(viewer.scene.canvas);
-    clicks.setInputAction((ev) => {
+    clicks.setInputAction(async (ev) => {
       const hit = viewer.scene.pick(ev.position);
-      const p = hit && hit.id && info[hit.id.id];
+      const hitInfo = hit && hit.id && info[hit.id.id];
+      if (!hitInfo) { pop.hidden = true; return; }
+      const at = { x: ev.position.x, y: ev.position.y };
+      const p = await picked(hitInfo.id, () => scene);
       if (!p) { pop.hidden = true; return; }
       pop.innerHTML = `<strong>${p.name}</strong><br>${p.label}`;
-      pop.style.left = `${ev.position.x + 12}px`;
-      pop.style.top = `${ev.position.y + 12}px`;
+      pop.style.left = `${at.x + 12}px`;
+      pop.style.top = `${at.y + 12}px`;
       pop.hidden = false;
     }, C.ScreenSpaceEventType.LEFT_CLICK);
 
     function addFeatures(sc) {
+      scene = sc;
       viewer.entities.removeAll();
       for (const k in info) delete info[k];
       pop.hidden = true;

@@ -159,7 +159,8 @@
       } else {
         lyr = L.geoJSON(b.geometry, { style: () => style });
       }
-      lyr.bindTooltip(`${esc(b.name)}<br>${esc(b.class_label)}${b.footprint_m2 ? `<br>${fmt(b.footprint_m2)} m²` : ""}`, { className: "bt", sticky: true });
+      lyr.bindTooltip(`<strong>${esc(b.name)}</strong><br>${inCalc(b)}<br>${esc(b.class_label)}${b.footprint_m2 ? `<br>${fmt(b.footprint_m2)} m²` : ""}`
+        + `<br><small>Klikkaa: mukaan tai pois laskennasta</small>`, { className: "bt", sticky: true });
       lyr.on("click", (ev) => { L.DomEvent.stopPropagation(ev); toggleHeated(b.id); focusBuilding(b.id); });
       lyr.addTo(layers.buildings);
       shapes[b.id] = lyr;
@@ -170,6 +171,7 @@
   function setArea(a) {
     state.area = a;
     state.result = null;
+    lastResult = null;
     drawArea();
     if (layers.area) map.fitBounds(layers.area.getBounds(), { padding: [30, 30], maxZoom: 17 });
     const chip = $("#areaChip");
@@ -223,6 +225,11 @@
     });
     state.result = null;
     renderAll();
+  }
+
+  const SCOPE_TEXT = { both: "lämpö ja sähkö", heat: "vain lämpö", el: "vain sähkö" };
+  function inCalc(b) {
+    return b.heated ? `<b>mukana laskennassa</b> (${SCOPE_TEXT[b.scope || "both"] || "lämpö ja sähkö"})` : "ei mukana laskennassa";
   }
 
   function toggleHeated(id, value) {
@@ -600,6 +607,7 @@
     state.result = await api("/api/model", { body: { project: projectPayload() } });
     renderResults();
     saveDraft();
+    refresh3d();
   });
 
   function cvPill(rep) {
@@ -639,14 +647,21 @@
     return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p;
   }
 
+  // A change to buildings, consumption or weather makes the result stale. The last result stays on screen, dimmed and
+  // without exports, until the profile is recalculated: the panel does not collapse, so the map does not jump under the cursor.
+  let lastResult = null;
   function renderResults() {
-    const r = state.result, host = $("#results");
+    const host = $("#results");
+    if (state.result) lastResult = state.result;
+    const r = state.result || lastResult;
+    const stale = !state.result;
     if (!r) {
       if (!host.hidden) { host.hidden = true; host.innerHTML = ""; refreshMap(); }
       return;
     }
     const wasHidden = host.hidden;
     host.hidden = false;
+    host.classList.toggle("stale", stale);
     const t = r.totals;
     const names = Object.fromEntries(state.buildings.map((b) => [b.id, b.name]));
     const grpRows = [...r.calibration.circuits.map((c) => ({ ...c, type: "Lämpö" })), ...r.calibration.meters.map((c) => ({ ...c, type: "Sähkö" }))]
@@ -658,11 +673,13 @@
     host.innerHTML = `
       <div class="res-head">
         <h3>Tuntiprofiili ${r.year}${state.area?.display ? `, ${esc(state.area.display)}` : ""}</h3>
-        <div class="res-actions">
-          <button type="button" class="btn small primary" id="dlCsv">Lataa CSV laskuriin</button>
-          <button type="button" class="btn small" id="copyEF">Kopioi sarakkeet E:F</button>
+        <div class="res-actions">${stale
+          ? `<button type="button" class="btn small primary" id="rerunModel"${$("#runModel").disabled ? " disabled" : ""}>Laske uudelleen</button>`
+          : `<button type="button" class="btn small primary" id="dlCsv">Lataa CSV laskuriin</button>
+          <button type="button" class="btn small" id="copyEF">Kopioi sarakkeet E:F</button>`}
         </div>
       </div>
+      ${stale ? `<p class="stale-note" role="status">Valinnat ovat muuttuneet. Luvut ovat edellisestä laskennasta${$("#runModel").disabled ? "; valitse ensin rakennukset ja säätiedot" : ""}.</p>` : ""}
       <div class="kpis">
         <div class="kpi el"><b>${fmt(t.electricity_kwh / 1000, 1)}</b><span>Sähkö, MWh/v</span></div>
         <div class="kpi el"><b>${fmt(t.electricity_peak_kw, 1)}</b><span>Sähkön huipputeho, kW</span></div>
@@ -686,6 +703,12 @@
         </ol>
         Laskurin aurinkosähkö- ja lämpöpumppulaskenta käyttää vielä laskurin omaa esimerkkivuotta. Ulkolämpötila (sarake G) on mukana CSV:ssä myöhempää käyttöä varten.
       </div>`;
+    if (stale) {
+      const rr = $("#rerunModel");
+      if (rr) rr.onclick = () => $("#runModel").click();
+      if (wasHidden) refreshMap();
+      return;
+    }
     $("#dlCsv").onclick = (e) => busy(e.currentTarget, "Ladataan…", async () => {
       const pr = state.prices[r.year];
       const csv = await api("/api/export/csv", { body: { project: projectPayload(), prices: pr ? pr.values : null } });
@@ -738,6 +761,7 @@
   }
   function loadState(s) {
     state = { ...blankState(), ...s, result: null, stations: [] };
+    lastResult = null;
     $("#year").value = state.year;
     $("#mainUse").value = state.mainUse;
     drawArea();
@@ -840,7 +864,7 @@
     const features = list.map((b) => {
       const r = per[b.id];
       const h = Math.max(1, b.floors || 1) * FLOOR_H;
-      const lines = [esc(b.class_label), b.footprint_m2 ? `pohja ${fmt(b.footprint_m2)} m²` : "", `korkeus noin ${fmt(h, 1)} m`];
+      const lines = [inCalc(b), esc(b.class_label), b.footprint_m2 ? `pohja ${fmt(b.footprint_m2)} m²` : "", `korkeus noin ${fmt(h, 1)} m`];
       if (r) lines.push(`sähkö ${fmt(r.electricity_kwh / 1000, 1)} MWh/v`, `lämpö ${fmt(r.heat_kwh / 1000, 1)} MWh/v`);
       let color;
       if (colour === "pick") color = b.heated ? ((b.scope || "both") === "el" ? elC : heatC) : b.on_property ? grey : nb;
@@ -862,15 +886,18 @@
   function renderLegend(sc) {
     const el = $("#v3dLegend");
     if (!sc) { el.innerHTML = ""; return; }
-    const height = `<span>Korkeus: kerrokset × ${fmt(FLOOR_H, 1)} m (arvio)</span>`;
+    const height = `<span class="v3d-hint">Korkeus: kerrokset × ${fmt(FLOOR_H, 1)} m (arvio)</span><span class="v3d-hint">Klikkaa rakennusta: mukaan tai pois</span>`;
     if (sc.colour === "pick") {
-      el.innerHTML = (state.result ? "" : "<span>Laske tuntiprofiili, niin väri kertoo kulutuksen.</span>") + height;
+      el.innerHTML = `<span class="v3d-hint">${state.result ? "Väri: valinta" : "Laske tuntiprofiili, niin väri kertoo kulutuksen"}</span>` + height;
       return;
     }
     const cls = sc.colour === "el" ? "el" : "heat";
-    el.innerHTML = `<span class="ramp-label">0</span><span class="ramp ${cls}" aria-hidden="true"></span>`
-      + `<span class="ramp-label">${fmt(sc.max / 1000, 1)} MWh/v</span>${height}`;
+    el.innerHTML = `<span class="v3d-scale"><span class="ramp-label">0</span><span class="ramp ${cls}" aria-hidden="true"></span>`
+      + `<span class="ramp-label">${fmt(sc.max / 1000, 1)} MWh/v</span></span>${height}`;
   }
+
+  // Clicking a building in 3D puts it in or out of the calculation, as on the 2D map.
+  RH3D.onPick = (id) => { toggleHeated(id); focusBuilding(id); return v3dChain; };
 
   function status3d(text, isError) {
     const el = $("#v3dStatus");
@@ -908,6 +935,7 @@
     }
     $("#v3dOpts").hidden = v !== "3d";
     $("#map3d").hidden = v !== "3d";
+    $("#v3dLegend").hidden = v !== "3d";
     if (v === "2d") {
       v3dChain = v3dChain.then(() => RH3D.destroy());
       status3d("");

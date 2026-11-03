@@ -127,7 +127,10 @@ code { font-family: var(--font-code); font-size: .92em; }
 .stage-bar { flex: 0 0 auto; display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; padding: 8px 12px;
   background: var(--surface); border-bottom: 1px solid var(--line); }
 .v3d-opts { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; min-width: 0; }
-.v3d-legend { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--ink-3); font-size: var(--text-xs); }
+.v3d-legend { position: absolute; z-index: 2; left: 12px; bottom: 36px; max-width: calc(100% - 24px); display: grid; gap: 4px;
+  padding: 8px 12px; border-radius: var(--r); background: var(--surface); color: var(--ink-2); font-size: var(--text-xs); box-shadow: 0 2px 8px var(--shadow); }
+.v3d-scale { display: flex; align-items: center; gap: 8px; }
+.v3d-hint { color: var(--ink-3); }
 .v3d-legend .ramp { width: 72px; height: 8px; border-radius: 2px; }
 .v3d-legend .ramp.heat { background: linear-gradient(90deg, color-mix(in srgb, var(--heat) 15%, var(--surface)), var(--heat)); }
 .v3d-legend .ramp.el { background: linear-gradient(90deg, color-mix(in srgb, var(--el) 15%, var(--surface)), var(--el)); }
@@ -295,6 +298,8 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space:
 .pill.none { background: var(--surface-2); color: var(--ink-3); }
 .tcap { caption-side: bottom; text-align: left; color: var(--ink-3); font-size: var(--text-xs); padding-top: 8px; }
 .warnline { color: var(--warn); display: inline-block; margin-top: 2px; }
+.results.stale .kpis, .results.stale .charts, .results.stale .tables { opacity: .5; }
+.stale-note { margin: 0 0 12px; padding: 8px 12px; border-radius: var(--r); background: var(--warn-soft); color: var(--warn); font-size: var(--text-sm); }
 .howto { margin-top: 12px; padding: 12px; background: var(--surface-2); border-radius: var(--r); font-size: var(--text-sm); }
 .howto ol { margin: 4px 0 0; padding-left: 20px; }
 
