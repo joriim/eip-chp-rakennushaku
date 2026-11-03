@@ -1,7 +1,7 @@
 <!doctype html><html lang="fi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rakennushaku – menetelmät ja lähteet</title><style>body{font:15px/1.55 'Public Sans',system-ui,sans-serif;max-width:860px;margin:2rem auto;padding:0 16px;color:#1d231f;background:#fff}h1,h2{color:#2e6b3f}table{border-collapse:collapse;font-size:13px;display:block;overflow-x:auto}th,td{border-bottom:1px solid #d9ded8;padding:4px 6px;text-align:left;vertical-align:top}pre{background:#eef1ec;padding:10px;overflow-x:auto}code{font-family:ui-monospace,Consolas,monospace}@media (prefers-color-scheme:dark){body{background:#141715;color:#e7ebe7}h1,h2{color:#6fb183}pre{background:#232824}th,td{border-color:#333a35}a{color:#9ccfab}}</style></head><body><h1 id="rakennushaku-menetelmät-ja-lähteet">Rakennushaku – menetelmät ja
 lähteet</h1>
 <p><strong>Versio:</strong> 0.5.0 · <strong>Päivitetty:</strong>
-1.11.2026<br />
+3.11.2026<br />
 <strong>Tekijät:</strong> Miiro Jääskeläinen ja Suvi Karirinne,
 Seinäjoen ammattikorkeakoulu (SEAMK), Maatalous ja energia
 -tutkimusryhmä<br />
@@ -559,16 +559,48 @@ Ulkolämpötila viedään sarakkeeksi G myöhempää käyttöä varten.</p>
 laskentamoottori (<code>web/engine.js</code>) antaa samat tulokset kuin
 Python-malli; <code>web/check_equivalence.py</code> vertaa niitä
 kahdeksassa skenaariossa (ero 0,000 kWh/h).</li>
-<li><strong>Automaattiset testit.</strong> 36 testiä kattavat
+<li><strong>Automaattiset testit.</strong> 37 testiä kattavat
 aikakannan, kesäajan, tiedostojen jäsennyksen, rajapintavastausten
-käsittelyn, kalibrointitavat, optiot ja vientimuodot
-(<code>pytest</code>). GitHub Actions ajaa testit ja
+käsittelyn, kalibrointitavat, optiot, vientimuodot ja 3D-näkymän
+tiedostot (<code>pytest</code>). GitHub Actions ajaa testit ja
 vastaavuustarkistuksen jokaisesta muutoksesta.</li>
 <li><strong>Live-testit 31.10.2026.</strong> MML (osoitehaku,
 kiinteistöhaku pisteellä ja tunnuksella, rakennukset, ortokuva), FMI
 (asemat, vuoden 2025 tuntisarja), Open-Meteo ja Sähkötin (2023–2026)
 testattiin oikeilla rajapinnoilla.</li>
 <li><strong>Kartta:</strong> Leaflet 1.9.4 [24].</li>
+<li><strong>3D-näkymä:</strong> MapLibre GL JS 5.24.0 [25] oletuksena,
+CesiumJS 1.146.0 [26] valinnaisena. Molemmat testattiin selaimessa
+(ohjelmistopohjainen WebGL): omalta levyltä avattu tiedosto, <a
+href="HTTP:llä" class="uri">HTTP:llä</a> jaettu tiedosto ja
+Python-palvelin.</li>
+</ul>
+<h3 id="d-näkymä">3D-näkymä</h3>
+<ul>
+<li><strong>Muoto.</strong> Rakennuksen pohja on MML:n Maastotietokannan
+alue [2]. Pistemäinen kohde esitetään 10 × 10 m neliönä.</li>
+<li><strong>Korkeus</strong> = kerrosluku × 3,5 m (oma oletus).
+Maastotietokannassa on kerrosluku muttei korkeutta; kattomuotoja ei
+mallinneta. Esimerkiksi yksikerroksinen kasvattamo on 3,5 m, vaikka
+harja on korkeampi.</li>
+<li><strong>Väri.</strong> Laskennan jälkeen väri on lineaarinen
+asteikko rakennuksen mallinnetusta vuotuisesta lämmöntarpeesta tai
+sähkönkulutuksesta (luku 7) nollasta suurimpaan rakennukseen. Ennen
+laskentaa väri kertoo valinnan: lämpö, vain sähkö, kiinteistön muut
+rakennukset, naapurit.</li>
+<li><strong>Taustakuva</strong> on MML:n ortokuva [1] (MML-avaimella)
+tai OpenStreetMap.</li>
+<li><strong>Maasto.</strong> Rakennukset seisovat ellipsoidilla eli
+tasaisella maalla. Cesiumin oma maastomalli (Cesium ion) vaatisi
+erillisen tunnuksen ja lähettäisi pyyntöjä kolmannelle osapuolelle,
+joten sitä ei käytetä.</li>
+<li><strong>Lataus.</strong> MapLibre sisältyy sovellukseen ja
+käynnistyy vasta, kun 3D-näkymä avataan. Cesium ladataan
+jsDelivr-palvelusta ensimmäisellä käytöllä. Cesiumin laskentasäikeet
+ovat ES-moduuleja, joita selain ei käynnistä levyltä avatulla sivulla
+(<a href="file://" class="uri">file://</a>), joten siellä Cesium-valinta
+on pois käytöstä. MapLibre 6 olisi samasta syystä toiminut vain
+verkossa, joten käytössä on version 5 yhtenäinen paketti.</li>
 </ul>
 <h2 id="kriittinen-arvio">12. Kriittinen arvio</h2>
 <p><strong>Korjattu versiossa 0.4.0</strong></p>
@@ -667,6 +699,11 @@ voi silti hakea.</li>
 (pieni). Selainversiossa jokainen käyttäjä tarvitsee oman MML-avaimen.
 Jos SEAMK tarjoaa sovellusta palveluna, Open-Meteon ja Sähkötinin
 ei-kaupallisen käytön ehdot on tarkistettava.</li>
+<li><strong>3D-näkymän korkeudet ja maasto</strong> (pieni). Korkeudet
+ovat arvioita eikä maastoa ole. Näkymä havainnollistaa kulutuksen
+jakautumista, mutta sitä ei pidä käyttää esimerkiksi aurinkopaneelien
+varjostuksen arviointiin. Suositus: MML:n laserkeilausaineistosta voisi
+johtaa todelliset korkeudet ja kattomuodot.</li>
 </ol>
 <h2 id="lähdeluettelo">13. Lähdeluettelo</h2>
 <p>Verkkosivujen sisältö ja rajapintojen toiminta on tarkistettu
@@ -836,6 +873,16 @@ BSD-2-Clause.</strong><br />
 <a target="_blank" rel="noopener" href="https://leafletjs.com/"
 class="uri">https://leafletjs.com/</a><br />
 Käyttö: kartan esitys (sisältyy sovellukseen).</p>
+<p><strong>[25] MapLibre-yhteisö. MapLibre GL JS 5.24.0.
+BSD-3-Clause.</strong><br />
+<a target="_blank" rel="noopener" href="https://maplibre.org/"
+class="uri">https://maplibre.org/</a><br />
+Käyttö: 3D-näkymä, oletus (sisältyy sovellukseen).</p>
+<p><strong>[26] Cesium GS. CesiumJS 1.146.0. Apache-2.0.</strong><br />
+<a target="_blank" rel="noopener" href="https://cesium.com/platform/cesiumjs/"
+class="uri">https://cesium.com/platform/cesiumjs/</a><br />
+Käyttö: 3D-näkymä, valinnainen (ladataan jsDelivr-palvelusta käytön
+aikana).</p>
 <h2 id="tekoälyn-käyttö">14. Tekoälyn käyttö</h2>
 <p>Sovelluksen koodin, testien ja tämän dokumentin laatimisessa on
 käytetty tekoälyä tekijöiden työvälineenä. Lähteet on haettu ja niiden

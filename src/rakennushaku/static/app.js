@@ -81,6 +81,13 @@
     orto.addTo(map);
   }
 
+  // Raster tiles for the 3D view: MML orthophoto through the local tile proxy, OSM without a key.
+  function tileTemplate() {
+    return META.has_mml_key
+      ? { url: location.origin + "/tiles/ortokuva/{z}/{x}/{y}", maxzoom: 15, attribution: "&copy; Maanmittauslaitos" }
+      : { url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", maxzoom: 19, attribution: "&copy; OpenStreetMap" };
+  }
+
   function setMode(m, text) {
     mode = m;
     const b = $("#modeBanner");
@@ -792,6 +799,141 @@
     renderWeather();
   });
 
+  // ------------------------------------------------------------------ 3D view
+  // Buildings extruded to floors × FLOOR_H and coloured by the modelled demand. MapLibre GL by default, Cesium as an option.
+  const FLOOR_H = 3.5;                       // m per storey; an estimate, MML gives floors but no heights
+  const V3D_KEY = "rakennushaku.view3d.v1";  // per-viewer renderer and colour choice
+  let view = "2d";
+  let v3dChain = Promise.resolve();
+  const v3dPrefs = { renderer: "maplibre", color: "heat" };
+  try { Object.assign(v3dPrefs, JSON.parse(localStorage.getItem(V3D_KEY) || "{}")); } catch (_) { /* storage blocked */ }
+
+  function hexRgb(h) {
+    h = String(h).trim().replace("#", "");
+    if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+    return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) || 0);
+  }
+  function mix(a, b, t) {
+    const A = hexRgb(a), B = hexRgb(b);
+    return "#" + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, "0")).join("");
+  }
+  function footprint(b) {
+    const g = b.geometry;
+    if (g.type === "Polygon" || g.type === "MultiPolygon") return g;
+    const c = g.type === "Point" ? g.coordinates : g.coordinates[0];  // point record: a 10 m square stands in
+    const dy = 5 / 111320, dx = dy / Math.cos(c[1] * Math.PI / 180);
+    return { type: "Polygon", coordinates: [[[c[0] - dx, c[1] - dy], [c[0] + dx, c[1] - dy], [c[0] + dx, c[1] + dy], [c[0] - dx, c[1] + dy], [c[0] - dx, c[1] - dy]]] };
+  }
+
+  function scene3d() {
+    const list = state.buildings.filter((b) => b.geometry);
+    if (!list.length) return null;
+    const heatC = getCss("--heat"), elC = getCss("--el"), paper = getCss("--surface"), nb = getCss("--neighbour");
+    const grey = mix(paper, nb, 0.7);
+    const per = {};
+    (state.result?.buildings || []).forEach((r) => { per[r.id] = r; });
+    const colour = state.result ? v3dPrefs.color : "pick";
+    const key = colour === "el" ? "electricity_kwh" : "heat_kwh";
+    const hue = colour === "el" ? elC : heatC;
+    const max = Math.max(0, ...Object.values(per).map((r) => r[key] || 0));
+    const low = mix(paper, hue, 0.15);
+    const features = list.map((b) => {
+      const r = per[b.id];
+      const h = Math.max(1, b.floors || 1) * FLOOR_H;
+      const lines = [esc(b.class_label), b.footprint_m2 ? `pohja ${fmt(b.footprint_m2)} m²` : "", `korkeus noin ${fmt(h, 1)} m`];
+      if (r) lines.push(`sähkö ${fmt(r.electricity_kwh / 1000, 1)} MWh/v`, `lämpö ${fmt(r.heat_kwh / 1000, 1)} MWh/v`);
+      let color;
+      if (colour === "pick") color = b.heated ? ((b.scope || "both") === "el" ? elC : heatC) : b.on_property ? grey : nb;
+      else color = r ? mix(low, hue, max > 0 ? (r[key] || 0) / max : 0) : b.on_property ? grey : nb;
+      return { type: "Feature", geometry: footprint(b), properties: { id: b.id, name: esc(b.name), h, color, label: lines.filter(Boolean).join("<br>") } };
+    });
+    // frame the heated buildings, or everything when none is chosen
+    const heatedIds = new Set(state.buildings.filter((b) => b.heated).map((b) => b.id));
+    const framed = features.filter((f) => heatedIds.has(f.properties.id));
+    let w = 180, s = 90, e = -180, n = -90;
+    const walk = (c) => {
+      if (typeof c[0] === "number") { w = Math.min(w, c[0]); e = Math.max(e, c[0]); s = Math.min(s, c[1]); n = Math.max(n, c[1]); }
+      else c.forEach(walk);
+    };
+    (framed.length ? framed : features).forEach((f) => walk(f.geometry.coordinates));
+    return { features: { type: "FeatureCollection", features }, bounds: [w, s, e, n], tiles: tileTemplate(), colour, max };
+  }
+
+  function renderLegend(sc) {
+    const el = $("#v3dLegend");
+    if (!sc) { el.innerHTML = ""; return; }
+    const height = `<span>Korkeus: kerrokset × ${fmt(FLOOR_H, 1)} m (arvio)</span>`;
+    if (sc.colour === "pick") {
+      el.innerHTML = (state.result ? "" : "<span>Laske tuntiprofiili, niin väri kertoo kulutuksen.</span>") + height;
+      return;
+    }
+    const cls = sc.colour === "el" ? "el" : "heat";
+    el.innerHTML = `<span class="ramp-label">0</span><span class="ramp ${cls}" aria-hidden="true"></span>`
+      + `<span class="ramp-label">${fmt(sc.max / 1000, 1)} MWh/v</span>${height}`;
+  }
+
+  function status3d(text, isError) {
+    const el = $("#v3dStatus");
+    el.textContent = text || "";
+    el.classList.toggle("error", !!isError);
+    el.hidden = !text;
+  }
+
+  function refresh3d() {
+    if (view !== "3d") return v3dChain;
+    const sc = scene3d();
+    renderLegend(sc);
+    if (!sc) { RH3D.destroy(); status3d("Hae ensin tila kohdassa 1."); return v3dChain; }
+    const renderer = v3dPrefs.renderer;
+    v3dChain = v3dChain.then(async () => {
+      if (view !== "3d") return;
+      if (RH3D.renderer !== renderer) status3d(renderer === "cesium" ? "Ladataan Cesiumia…" : "Ladataan 3D-näkymää…");
+      try {
+        await RH3D.show($("#map3d"), renderer, sc, "/static/");
+        status3d("");
+      } catch (e) {
+        RH3D.destroy();
+        status3d(`3D-näkymä ei käynnistynyt: ${e.message || e}. Selain ei ehkä tue WebGL:ää.`, true);
+      }
+    });
+    return v3dChain;
+  }
+
+  function setView(v) {
+    view = v;
+    for (const btn of document.querySelectorAll("#viewSeg button")) {
+      const on = btn.dataset.view === v;
+      btn.classList.toggle("on", on);
+      btn.setAttribute("aria-pressed", String(on));
+    }
+    $("#v3dOpts").hidden = v !== "3d";
+    $("#map3d").hidden = v !== "3d";
+    if (v === "2d") {
+      v3dChain = v3dChain.then(() => RH3D.destroy());
+      status3d("");
+      map.invalidateSize();
+      return v3dChain;
+    }
+    return refresh3d();
+  }
+
+  function saveV3dPrefs() {
+    try { localStorage.setItem(V3D_KEY, JSON.stringify(v3dPrefs)); } catch (_) { /* storage blocked */ }
+  }
+  $("#viewSeg").addEventListener("click", (e) => { const b = e.target.closest("button[data-view]"); if (b) setView(b.dataset.view); });
+  // Cesium runs its workers as modules, which a page opened straight from disk (file://) cannot start.
+  if (location.protocol === "file:") {
+    const opt = $('#v3dRenderer option[value="cesium"]');
+    opt.disabled = true;
+    opt.textContent = "Cesium (vain verkossa julkaistussa versiossa)";
+    v3dPrefs.renderer = "maplibre";
+  }
+  $("#v3dRenderer").value = v3dPrefs.renderer;
+  $("#v3dColor").value = v3dPrefs.color;
+  $("#v3dRenderer").addEventListener("change", (e) => { v3dPrefs.renderer = e.target.value; saveV3dPrefs(); refresh3d(); });
+  $("#v3dColor").addEventListener("change", (e) => { v3dPrefs.color = e.target.value; saveV3dPrefs(); refresh3d(); });
+  if (window.ResizeObserver) new ResizeObserver(() => { map.invalidateSize(); RH3D.resize(); }).observe($(".mapwrap"));
+
   function renderAll() {
     renderPrices();
     renderBuildings();
@@ -801,6 +943,7 @@
     renderChecklist();
     renderResults();
     saveDraft();
+    refresh3d();
   }
 
   // ------------------------------------------------------------------ boot

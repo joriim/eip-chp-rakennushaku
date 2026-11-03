@@ -105,7 +105,33 @@
   </aside>
 
   <section class="stage">
-    <div id="map" class="map" aria-label="Kartta"></div>
+    <div class="stage-bar" role="toolbar" aria-label="Karttanäkymä">
+      <div class="seg" id="viewSeg">
+        <button type="button" data-view="2d" class="on" aria-pressed="true">Kartta</button>
+        <button type="button" data-view="3d" aria-pressed="false">3D</button>
+      </div>
+      <div class="v3d-opts" id="v3dOpts" hidden>
+        <label class="inline" for="v3dRenderer">3D-moottori
+          <select id="v3dRenderer">
+            <option value="maplibre">MapLibre GL</option>
+            <option value="cesium">Cesium (ladataan verkosta)</option>
+          </select>
+        </label>
+        <label class="inline" for="v3dColor">Väri
+          <select id="v3dColor">
+            <option value="heat">Lämmöntarve</option>
+            <option value="el">Sähkö</option>
+            <option value="pick">Valinta</option>
+          </select>
+        </label>
+        <span id="v3dLegend" class="v3d-legend"></span>
+      </div>
+    </div>
+    <div class="mapwrap">
+      <div id="map" class="map" aria-label="Kartta"></div>
+      <div id="map3d" class="map3d" aria-label="3D-näkymä" hidden></div>
+      <p id="v3dStatus" class="v3d-status" role="status" hidden></p>
+    </div>
     <div id="modeBanner" class="mode-banner" hidden></div>
     <section id="results" class="results" hidden aria-live="polite"></section>
   </section>
@@ -115,6 +141,7 @@
 <div id="tip" class="tip" hidden></div>
 
 <script src="/static/vendor/leaflet/leaflet.js"></script>
+<script src="/static/view3d.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

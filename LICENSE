@@ -21,4 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 Third-party components: Leaflet 1.9.4 (BSD-2-Clause), see
-src/rakennushaku/static/vendor/leaflet/LICENSE.
+src/rakennushaku/static/vendor/leaflet/LICENSE; MapLibre GL JS 5.24.0
+(BSD-3-Clause), see src/rakennushaku/static/vendor/maplibre/LICENSE.txt.
+CesiumJS 1.146.0 (Apache-2.0) is not included; the optional 3D engine loads
+it at run time from cdn.jsdelivr.net.

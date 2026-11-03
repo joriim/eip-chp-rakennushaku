@@ -92,6 +92,16 @@ def ui_js() -> str:
     orto.addTo(map);
   }
 
+  // Raster tiles for the 3D view: MML orthophoto with the viewer's own key, OSM without one.
+  function tileTemplate() {
+    const k = mmlKey();
+    return k
+      ? { url: `${RH.WMTS}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ortokuva&STYLE=default`
+          + `&TILEMATRIXSET=WGS84_Pseudo-Mercator&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/jpeg&api-key=${encodeURIComponent(k)}`,
+          maxzoom: 15, attribution: "&copy; Maanmittauslaitos" }
+      : { url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", maxzoom: 19, attribution: "&copy; OpenStreetMap" };
+  }
+
 ''' + js[end:]
     # ---- property ID or street address in the same field
     js = sub(js, '''    busy(e.submitter || $("#ktForm button"), "Haetaan…", async () => {
@@ -150,6 +160,11 @@ def ui_js() -> str:
     return js
 
 
+def inert(text: str) -> str:
+    """Make library text safe inside <script type="text/plain">; the loader reads it back with textContent."""
+    return text.replace("</script", "<\\/script").replace("</SCRIPT", "<\\/SCRIPT")
+
+
 def page() -> str:
     html = (STATIC / "index.html").read_text(encoding="utf-8")
     html = sub(html, '<link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">', "<style>\n" + leaflet_css() + "\n</style>")
@@ -179,6 +194,15 @@ def page() -> str:
     lic = (STATIC / "vendor/leaflet/LICENSE").read_text(encoding="utf-8").strip().replace("*/", "* /")
     html = sub(html, '<script src="/static/vendor/leaflet/leaflet.js"></script>',
                "<script>/* Leaflet 1.9.4 (https://leafletjs.com), BSD-2-Clause:\n" + lic + "\n*/\n" + leaflet + "\n</script>")
+    # 3D view: its module inline; MapLibre kept as inert text and started only when the 3D view opens
+    v3d = (STATIC / "view3d.js").read_text(encoding="utf-8")
+    html = sub(html, '<script src="/static/view3d.js"></script>', "<script>\n" + v3d + "\n</script>")
+    ml_dir = STATIC / "vendor/maplibre"
+    ml_lic = (ml_dir / "LICENSE.txt").read_text(encoding="utf-8").strip()
+    html = sub(html, "</body>",
+               "<!-- MapLibre GL JS 5.24.0 (https://maplibre.org), BSD-3-Clause:\n" + ml_lic.replace("--", "- -") + "\n-->\n"
+               + '<script type="text/plain" id="lib-maplibre-css">' + inert((ml_dir / "maplibre-gl.css").read_text(encoding="utf-8")) + "</script>\n"
+               + '<script type="text/plain" id="lib-maplibre">' + inert((ml_dir / "maplibre-gl.js").read_text(encoding="utf-8")) + "</script>\n</body>")
     engine = (WEB / "engine.js").read_text(encoding="utf-8")
     html = sub(html, '<script src="/static/app.js"></script>', "<script>\n" + engine + "\n</script>\n<script>\n" + ui_js() + "\n</script>")
     return html

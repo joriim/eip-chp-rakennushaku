@@ -47,6 +47,11 @@ Kaikki laskenta tehdään käyttäjän selaimessa. Kulutustiedot eivät lähde k
 5. **Sähkön pörssihinta** (valinnainen). Hae tarkasteluvuoden hinnat tai kaikki laskurin vuodet 2023–2026.
 6. **Energiaprofiili.** Paina *Laske tuntiprofiili*. Tarkista kalibrointitaulukosta sopivuus ja varoitukset. Lataa sen jälkeen CSV tai kopioi sarakkeet.
 
+**3D-näkymä.** Kartan yläpuolelta *3D* näyttää rakennukset kolmiulotteisina ilmakuvan päällä. Korkeus on arvio (kerrokset × 3,5 m). Laskennan jälkeen väri kertoo rakennuksen mallinnetun vuotuisen lämmöntarpeen tai sähkönkulutuksen; ennen sitä väri näyttää valitut rakennukset. Rakennusta klikkaamalla näkyvät sen luvut.
+- *MapLibre GL* on oletus ja toimii myös omalta koneelta avattuna.
+- *Cesium* on vaihtoehto, joka näyttää maapallon ja vapaamman kameran. Se ladataan ensimmäisellä käytöllä jsDelivr-palvelusta (noin 5 Mt) ja toimii vain verkossa julkaistussa versiossa tai Python-palvelimella, ei omalta levyltä avattuna.
+- 3D vaatii selaimen WebGL-tuen. Vanhoilla koneilla kartta voi olla hidas; työvaiheet tehdään 2D-kartalla.
+
 ### Vienti laskuriin
 
 | Tiedosto | Sarakkeet | Minne laskurissa |
@@ -65,11 +70,13 @@ Liitä aina valinnalla **Liitä määräten → Arvot**. Rivi 2 on 1.1. klo 00�
 | "Ulkolämpötilasarjasta puuttuu … tuntia" | Vuosi on kesken tai asemalta puuttuu dataa. Valitse päättynyt vuosi, toinen asema tai Open-Meteo. |
 | "Kulutustieto puuttuu … (tulos on mallin oletus)" | Piirille tai mittarille ei ole annettu kulutusta. Tulos ei silloin kuvaa tilaa. |
 | Huipputeho ylittää kattilan tehon | Profiili on liian piikikäs (esim. broilerierät samaan aikaan) tai kattilan teho on väärä. |
+| "3D-näkymä ei käynnistynyt" | Selain tai näytönohjain ei tue WebGL:ää, tai Cesiumia ei saatu ladattua (verkkoyhteys, palomuuri). Käytä MapLibre GL:ää tai 2D-karttaa. |
+| Cesium-vaihtoehto on harmaa | Tiedosto on avattu omalta levyltä. Cesium toimii julkaistulla sivulla tai Python-palvelimella. |
 | CSV avautuu yhteen sarakkeeseen | Excelin kieliasetus ei ole suomi. Tuo tiedosto: Tiedot → Tekstistä/CSV:stä, erotin puolipiste. |
 
 ### Tietosuoja
 
-Sovellus ei tallenna eikä lähetä kulutustietoja minnekään. Rajapinnoille lähtevät vain sijainti, kiinteistötunnus, osoitehakuteksti ja vuosi. Keskeneräinen työ ja MML-avain säilyvät vain käyttäjän selaimessa. Projektin voi tallentaa JSON-tiedostoksi omalle koneelle.
+Sovellus ei tallenna eikä lähetä kulutustietoja minnekään. Rajapinnoille lähtevät vain sijainti, kiinteistötunnus, osoitehakuteksti ja vuosi. Keskeneräinen työ, 3D-näkymän valinnat ja MML-avain säilyvät vain käyttäjän selaimessa. Jos 3D-näkymässä valitaan Cesium, selain lataa kirjaston jsDelivr-palvelusta (cdn.jsdelivr.net), joka näkee käyttäjän IP-osoitteen; tilan tietoja sinne ei lähetetä. Projektin voi tallentaa JSON-tiedostoksi omalle koneelle.
 
 ## Python-versio
 
@@ -116,7 +123,7 @@ Laadittu EIP CHP Energiaälykäs eteläpohjalainen maatila -hankkeessa. Hankkeen
 
 ## Lisenssit ja tietolähteet
 
-- **Koodi:** MIT ([LICENSE](LICENSE)), © Seinäjoen ammattikorkeakoulu. Leaflet 1.9.4: BSD-2-Clause.
+- **Koodi:** MIT ([LICENSE](LICENSE)), © Seinäjoen ammattikorkeakoulu. Mukana: Leaflet 1.9.4 (BSD-2-Clause) ja MapLibre GL JS 5.24.0 (BSD-3-Clause). Valinnaisena verkosta ladattava CesiumJS 1.146.0 (Apache-2.0).
 - **Data** haetaan käyttäjälle rajapinnoista eikä sisälly repoon:
   - Maanmittauslaitos (CC BY 4.0)
   - Ilmatieteen laitos (CC BY 4.0)

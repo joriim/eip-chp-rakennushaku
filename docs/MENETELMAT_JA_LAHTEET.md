@@ -1,6 +1,6 @@
 # Rakennushaku – menetelmät ja lähteet
 
-**Versio:** 0.5.0 · **Päivitetty:** 1.11.2026  
+**Versio:** 0.5.0 · **Päivitetty:** 3.11.2026  
 **Tekijät:** Miiro Jääskeläinen ja Suvi Karirinne, Seinäjoen ammattikorkeakoulu (SEAMK), Maatalous ja energia -tutkimusryhmä  
 **Hanke:** EIP CHP Energiaälykäs eteläpohjalainen maatila (EU:n osarahoittama)  
 **Liittyy:** Maatilan hybridienergialaskuri, versio 0.9.3 [18]
@@ -146,9 +146,19 @@ CSV-tiedostoissa on puolipiste-erotin, desimaalipilkku ja UTF-8 BOM suomenkielis
 ## 11. Toteutus ja testaus
 
 - **Kaksi toteutusta.** Sovellus on Python-palvelin (FastAPI) ja yhden tiedoston selainversio. Selainversion laskentamoottori (`web/engine.js`) antaa samat tulokset kuin Python-malli; `web/check_equivalence.py` vertaa niitä kahdeksassa skenaariossa (ero 0,000 kWh/h).
-- **Automaattiset testit.** 36 testiä kattavat aikakannan, kesäajan, tiedostojen jäsennyksen, rajapintavastausten käsittelyn, kalibrointitavat, optiot ja vientimuodot (`pytest`). GitHub Actions ajaa testit ja vastaavuustarkistuksen jokaisesta muutoksesta.
+- **Automaattiset testit.** 37 testiä kattavat aikakannan, kesäajan, tiedostojen jäsennyksen, rajapintavastausten käsittelyn, kalibrointitavat, optiot, vientimuodot ja 3D-näkymän tiedostot (`pytest`). GitHub Actions ajaa testit ja vastaavuustarkistuksen jokaisesta muutoksesta.
 - **Live-testit 31.10.2026.** MML (osoitehaku, kiinteistöhaku pisteellä ja tunnuksella, rakennukset, ortokuva), FMI (asemat, vuoden 2025 tuntisarja), Open-Meteo ja Sähkötin (2023–2026) testattiin oikeilla rajapinnoilla.
 - **Kartta:** Leaflet 1.9.4 [24].
+- **3D-näkymä:** MapLibre GL JS 5.24.0 [25] oletuksena, CesiumJS 1.146.0 [26] valinnaisena. Molemmat testattiin selaimessa (ohjelmistopohjainen WebGL): omalta levyltä avattu tiedosto, HTTP:llä jaettu tiedosto ja Python-palvelin.
+
+### 3D-näkymä
+
+- **Muoto.** Rakennuksen pohja on MML:n Maastotietokannan alue [2]. Pistemäinen kohde esitetään 10 × 10 m neliönä.
+- **Korkeus** = kerrosluku × 3,5 m (oma oletus). Maastotietokannassa on kerrosluku muttei korkeutta; kattomuotoja ei mallinneta. Esimerkiksi yksikerroksinen kasvattamo on 3,5 m, vaikka harja on korkeampi.
+- **Väri.** Laskennan jälkeen väri on lineaarinen asteikko rakennuksen mallinnetusta vuotuisesta lämmöntarpeesta tai sähkönkulutuksesta (luku 7) nollasta suurimpaan rakennukseen. Ennen laskentaa väri kertoo valinnan: lämpö, vain sähkö, kiinteistön muut rakennukset, naapurit.
+- **Taustakuva** on MML:n ortokuva [1] (MML-avaimella) tai OpenStreetMap.
+- **Maasto.** Rakennukset seisovat ellipsoidilla eli tasaisella maalla. Cesiumin oma maastomalli (Cesium ion) vaatisi erillisen tunnuksen ja lähettäisi pyyntöjä kolmannelle osapuolelle, joten sitä ei käytetä.
+- **Lataus.** MapLibre sisältyy sovellukseen ja käynnistyy vasta, kun 3D-näkymä avataan. Cesium ladataan jsDelivr-palvelusta ensimmäisellä käytöllä. Cesiumin laskentasäikeet ovat ES-moduuleja, joita selain ei käynnistä levyltä avatulla sivulla (file://), joten siellä Cesium-valinta on pois käytöstä. MapLibre 6 olisi samasta syystä toiminut vain verkossa, joten käytössä on version 5 yhtenäinen paketti.
 
 ## 12. Kriittinen arvio
 
@@ -177,6 +187,7 @@ CSV-tiedostoissa on puolipiste-erotin, desimaalipilkku ja UTF-8 BOM suomenkielis
 8. **CSV-muoto** (pieni). Puolipiste ja desimaalipilkku sopivat suomenkieliseen Exceliin. Muulla kieliasetuksella tiedosto pitää tuoda Tiedot → Tekstistä/CSV:stä -toiminnolla.
 9. **Kesken oleva vuosi** (pieni). Kuluvan vuoden säädata ei ole täydellinen, joten mallia ei voi ajaa ennen vuoden loppua. Hinnat voi silti hakea.
 10. **API-avain ja käyttöehdot julkisessa palvelussa** (pieni). Selainversiossa jokainen käyttäjä tarvitsee oman MML-avaimen. Jos SEAMK tarjoaa sovellusta palveluna, Open-Meteon ja Sähkötinin ei-kaupallisen käytön ehdot on tarkistettava.
+11. **3D-näkymän korkeudet ja maasto** (pieni). Korkeudet ovat arvioita eikä maastoa ole. Näkymä havainnollistaa kulutuksen jakautumista, mutta sitä ei pidä käyttää esimerkiksi aurinkopaneelien varjostuksen arviointiin. Suositus: MML:n laserkeilausaineistosta voisi johtaa todelliset korkeudet ja kattomuodot.
 
 ## 13. Lähdeluettelo
 
@@ -273,6 +284,14 @@ Käyttö: Guideline 14:n tuntitason kriteerien vahvistus (CV(RMSE) < 30 %, NMBE 
 **[24] Agafonkin, V. ym. Leaflet 1.9.4. BSD-2-Clause.**  
 https://leafletjs.com/  
 Käyttö: kartan esitys (sisältyy sovellukseen).
+
+**[25] MapLibre-yhteisö. MapLibre GL JS 5.24.0. BSD-3-Clause.**  
+https://maplibre.org/  
+Käyttö: 3D-näkymä, oletus (sisältyy sovellukseen).
+
+**[26] Cesium GS. CesiumJS 1.146.0. Apache-2.0.**  
+https://cesium.com/platform/cesiumjs/  
+Käyttö: 3D-näkymä, valinnainen (ladataan jsDelivr-palvelusta käytön aikana).
 
 ## 14. Tekoälyn käyttö
 

@@ -123,7 +123,26 @@ code { font-family: var(--font-code); font-size: .92em; }
 .layout { display: grid; grid-template-columns: minmax(340px, 440px) minmax(0, 1fr); min-height: calc(100dvh - var(--top-h, 57px)); }
 .panel { background: var(--surface); color: var(--ink); border-right: 1px solid var(--line); min-width: 0; }
 .stage { position: sticky; top: var(--top-h, 57px); height: calc(100dvh - var(--top-h, 57px)); display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-.map { flex: 1 1 auto; min-height: 280px; background: var(--surface-2); }
+/* map stage: a toolbar (2D or 3D, the 3D engine and colour), then the map and the 3D view in the same box */
+.stage-bar { flex: 0 0 auto; display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; padding: 8px 12px;
+  background: var(--surface); border-bottom: 1px solid var(--line); }
+.v3d-opts { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; min-width: 0; }
+.v3d-legend { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--ink-3); font-size: var(--text-xs); }
+.v3d-legend .ramp { width: 72px; height: 8px; border-radius: 2px; }
+.v3d-legend .ramp.heat { background: linear-gradient(90deg, color-mix(in srgb, var(--heat) 15%, var(--surface)), var(--heat)); }
+.v3d-legend .ramp.el { background: linear-gradient(90deg, color-mix(in srgb, var(--el) 15%, var(--surface)), var(--el)); }
+.v3d-legend .ramp-label { font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.mapwrap { position: relative; flex: 1 1 auto; min-height: 280px; }
+.mapwrap > .map, .mapwrap > .map3d { position: absolute; inset: 0; background: var(--surface-2); }  /* beats .maplibregl-map { position: relative } */
+.mapwrap > .map { z-index: 0; }  /* keeps Leaflet's own z-indexes inside the 2D map */
+.mapwrap > .map3d { z-index: 1; }
+.v3d-status { position: absolute; z-index: 2; top: 12px; left: 12px; right: 12px; margin: 0; width: fit-content; max-width: calc(100% - 24px);
+  padding: 8px 12px; border-radius: var(--r); background: var(--surface); color: var(--ink); font-size: var(--text-sm); box-shadow: 0 4px 16px var(--shadow); }
+.v3d-status.error { background: var(--bad); color: var(--on-bad); }
+.v3d-pop { position: absolute; z-index: 3; max-width: 260px; padding: 8px 12px; border-radius: var(--r); background: var(--surface); color: var(--ink);
+  font-size: var(--text-sm); line-height: 1.4; box-shadow: 0 4px 16px var(--shadow); pointer-events: none; }
+.map3d .maplibregl-popup-content { background: var(--surface); color: var(--ink); font: var(--text-sm)/1.4 var(--font-body); }
+.map3d .maplibregl-popup-tip { border-top-color: var(--surface); border-bottom-color: var(--surface); }
 .results {
   flex: 0 0 auto; max-height: 52%; overflow-y: auto; background: var(--surface);
   border-top: 1px solid var(--line); padding: 16px 20px 20px;
@@ -314,7 +333,7 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space:
   .layout { grid-template-columns: minmax(0, 1fr); min-height: 0; }
   .panel { border-right: 0; }
   .stage { order: -1; position: static; height: auto; }
-  .map { height: 52vh; flex: none; }
+  .mapwrap { height: 52vh; flex: none; }
   .results { max-height: none; }
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kpi:nth-child(3) { border-left: 0; }

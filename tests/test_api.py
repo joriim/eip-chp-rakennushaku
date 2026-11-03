@@ -100,3 +100,17 @@ def test_price_endpoints(client):
     assert hh.status_code == 200 and hh.text.count("\n") == HOURS + 1
     pp = client.post("/api/export/paste-prices", json={"prices": {"2025": p["values"]}}).text
     assert pp.count("\n") == HOURS - 1
+
+
+def test_3d_view_assets(client):
+    """The 3D view's module and the bundled MapLibre are served; the single-file build carries both."""
+    page = client.get("/").text
+    assert 'id="map3d"' in page and "/static/view3d.js" in page
+    v3d = client.get("/static/view3d.js")
+    assert v3d.status_code == 200 and "RH3D" in v3d.text and 'CESIUM_VERSION = "1.146.0"' in v3d.text
+    ml = client.get("/static/vendor/maplibre/maplibre-gl.js")
+    assert ml.status_code == 200 and "MapLibre GL JS" in ml.text[:300]
+    assert client.get("/static/vendor/maplibre/LICENSE.txt").status_code == 200
+    from pathlib import Path
+    built = (Path(__file__).resolve().parents[1] / "web" / "rakennushaku.html").read_text(encoding="utf-8")
+    assert 'id="lib-maplibre"' in built and "window.RH3D" in built and "function tileTemplate()" in built
