@@ -4,7 +4,7 @@ Rakennushaku muodostaa maatilan rakennuksille tunnittaisen sähkö- ja lämpöpr
 
 **Versio 0.6.0 · prototyyppi** · EIP CHP Energiaälykäs eteläpohjalainen maatila · SEAMK, Maatalous ja energia -tutkimusryhmä
 
-- **Käytä selaimessa:** https://seamkedu.github.io/Rakennushaku/ (GitHub Pages; vaatii Pages-julkaisun, ks. *Kehitys*), tai avaa tiedosto [`web/rakennushaku.html`](web/rakennushaku.html) omalla koneella.
+- **Käytä selaimessa:** https://joriim.github.io/eip-chp-rakennushaku/ (GitHub Pages; vaatii Pages-julkaisun, ks. *Kehitys*), tai avaa tiedosto [`web/rakennushaku.html`](web/rakennushaku.html) omalla koneella.
 - **Menetelmät, oletukset ja lähteet:** [docs/MENETELMAT_JA_LAHTEET.md](docs/MENETELMAT_JA_LAHTEET.md)
 - **Muutokset:** [CHANGELOG.md](CHANGELOG.md)
 
@@ -109,12 +109,13 @@ python docs/build_docs.py          # päivittää menetelmädokumentin (HTML vaa
 - **Rakenne:** `src/rakennushaku/` sisältää Python-mallin, rajapinnat ja käyttöliittymän (`static/`). `web/engine.js` on mallin selainversio, ja `web/build.py` kokoaa yhden tiedoston sovelluksen. `docs/` sisältää menetelmät ja lähteet, `tests/` testit.
 - **Rinnakkaiset toteutukset:** mallin muutokset tehdään sekä tiedostoon `src/rakennushaku/model.py` että `web/engine.js`, ja tarkistetaan komennolla `check_equivalence.py`.
 - **Automaatio:** GitHub Actions ajaa testit jokaisesta muutoksesta ja julkaisee selainversion GitHub Pagesiin. Pages otetaan käyttöön kerran: *Settings → Pages → Source: GitHub Actions*.
+- **Repositorio:** kehitysversio on toistaiseksi osoitteessa https://github.com/joriim/eip-chp-rakennushaku. Sovellus on tarkoitus siirtää myöhemmin SEAMKin GitHub-organisaatioon (SeAMKedu); osoitteet päivitetään siirron yhteydessä (`README.md`, `CITATION.cff`, `pyproject.toml`).
 
 ## Viittaaminen
 
 Viittaa ohjelmistoon tiedoston [CITATION.cff](CITATION.cff) tiedoilla. Zenodo-julkaisun jälkeen pysyvä DOI lisätään tähän.
 
-Jääskeläinen, M. & Karirinne, S. (2026). *Rakennushaku: tilan rakennukset ja tunnittainen energiaprofiili Maatilan hybridienergialaskuriin* (versio 0.6.0) [Tietokoneohjelma]. Seinäjoen ammattikorkeakoulu. https://github.com/SeAMKedu/Rakennushaku
+Jääskeläinen, M. & Karirinne, S. (2026). *Rakennushaku: tilan rakennukset ja tunnittainen energiaprofiili Maatilan hybridienergialaskuriin* (versio 0.6.0) [Tietokoneohjelma]. Seinäjoen ammattikorkeakoulu. https://github.com/joriim/eip-chp-rakennushaku
 
 ## Tekijät ja tekijöiden panos
 

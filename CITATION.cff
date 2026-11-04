@@ -19,8 +19,8 @@ authors:
 version: "0.6.0"
 date-released: "2026-11-04"
 license: MIT
-repository-code: "https://github.com/SeAMKedu/Rakennushaku"
-url: "https://seamkedu.github.io/Rakennushaku/"
+repository-code: "https://github.com/joriim/eip-chp-rakennushaku"
+url: "https://joriim.github.io/eip-chp-rakennushaku/"
 keywords:
   - maatila
   - energia
