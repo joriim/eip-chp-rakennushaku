@@ -13,15 +13,20 @@ HEAT_UNITS = {
     "MWh_pa": {"label": "MWh polttoainetta", "kwh_per_unit": 1000.0, "fuel": True},
     "t_pelletti": {"label": "t pellettiä", "kwh_per_unit": 4700.0, "fuel": True},
     "l_oljy": {"label": "l kevyttä polttoöljyä", "kwh_per_unit": 10.0, "fuel": True},
+    # electric heating: electricity used for heating (sub-meter); heat = electricity × COP
+    "kWh_el": {"label": "kWh sähköä lämmitykseen", "kwh_per_unit": 1.0, "fuel": False, "el": True},
+    "MWh_el": {"label": "MWh sähköä lämmitykseen", "kwh_per_unit": 1000.0, "fuel": False, "el": True},
 }
 EL_UNITS = {"kWh": 1.0, "MWh": 1000.0}
 
 
-def heat_to_kwh(value: float, unit: str, efficiency: float = 0.85, chip_mwh_per_m3: float = 0.8) -> float:
+def heat_to_kwh(value: float, unit: str, efficiency: float = 0.85, chip_mwh_per_m3: float = 0.8, cop: float = 1.0) -> float:
     u = HEAT_UNITS[unit]
     k = u["kwh_per_unit"]
     if unit == "i-m3":
         k = chip_mwh_per_m3 * 1000.0
+    if u.get("el"):
+        return float(value) * k * cop
     return float(value) * k * (efficiency if u["fuel"] else 1.0)
 
 

@@ -57,6 +57,7 @@ def status() -> dict:
         "has_mml_key": bool(api_key()),
         "use_types": {k: {kk: vv for kk, vv in v.items()} for k, v in model.USE_TYPES.items()},
         "heat_units": {k: v["label"] for k, v in export.HEAT_UNITS.items()},
+        "heating_systems": model.HEATING_SYSTEMS,
         "attribution": {"mml": mml.ATTRIBUTION, "fmi": weather.FMI_ATTR, "open_meteo": weather.OM_ATTR,
                         "prices": prices.ATTR},
     }
@@ -244,13 +245,17 @@ def _prepare(project: dict) -> dict:
         eff = float(d.get("efficiency") or 0.85)
         dens = float(d.get("chip_density") or 0.8)
         unit = d.get("unit") or "kWh"
+        cop = model.heating_cop(d) or 1.0
         if d.get("kind") == "annual" and d.get("value") not in (None, ""):
-            d["kwh"] = export.heat_to_kwh(float(d["value"]), unit, eff, dens)
+            d["kwh"] = export.heat_to_kwh(float(d["value"]), unit, eff, dens, cop)
         if d.get("base_share_pct") not in (None, ""):
             d["base_share"] = float(d["base_share_pct"]) / 100.0
         if d.get("kind") == "monthly":
-            d["kwh_months"] = [None if v in (None, "") else export.heat_to_kwh(float(v), unit, eff, dens)
+            d["kwh_months"] = [None if v in (None, "") else export.heat_to_kwh(float(v), unit, eff, dens, cop)
                                for v in d.get("months") or []]
+        if d.get("kind") == "hourly" and export.HEAT_UNITS.get(unit, {}).get("el") and d.get("values"):
+            # an hourly sub-meter file of heating electricity (kWh/h): heat = electricity × COP
+            d["values"] = [None if v is None else float(v) * cop for v in d["values"]]
         c["data"] = d
         circuits.append(c)
     meters = []

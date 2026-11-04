@@ -958,6 +958,10 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
 .chart svg { width: 100%; height: auto; display: block; }
 .chart svg text { fill: var(--ink-3); font: 11px var(--font-body); }
 .chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .cap { stroke: var(--ink-2); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.chart .dur-pt { fill: transparent; }
+.chart .dur-pt:hover { fill: var(--ink-2); }
+.chart-note { margin: 4px 0 0; color: var(--ink-3); font-size: var(--text-xs); max-width: 60ch; }
 .tables { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .tbl-wrap { overflow-x: auto; min-width: 0; }
 table { border-collapse: collapse; width: 100%; font-size: var(--text-sm); }
@@ -975,11 +979,17 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space:
 .howto { margin-top: 12px; padding: 12px; background: var(--surface-2); border-radius: var(--r); font-size: var(--text-sm); }
 .howto ol { margin: 4px 0 0; padding-left: 20px; }
 
+/* messages stack in the lower left, over the step panel, so they never hide the results or each other */
+.toasts { position: fixed; z-index: 1000; left: 16px; bottom: 16px; width: min(400px, calc(100% - 32px)); display: grid; gap: 8px; pointer-events: none; }
 .toast {
-  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; background: var(--ink); color: var(--paper);
-  padding: 8px 16px; border-radius: var(--r); font-size: var(--text-sm); max-width: calc(100% - 32px); box-shadow: 0 8px 20px var(--shadow);
+  display: flex; align-items: flex-start; gap: 8px; pointer-events: auto; background: var(--ink); color: var(--paper);
+  padding: 8px 8px 8px 16px; border-radius: var(--r); font-size: var(--text-sm); box-shadow: 0 8px 20px var(--shadow);
 }
+.toast span { flex: 1; padding-top: 4px; }
 .toast.error { background: var(--bad); color: var(--on-bad); }
+.toast-x { border: 0; background: none; color: inherit; cursor: pointer; min-width: 32px; min-height: 32px; font-size: var(--text-lg); line-height: 1; border-radius: var(--r); }
+.toast-x:hover { background: color-mix(in srgb, currentColor 15%, transparent); }
+.toast-x:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
 .tip { position: fixed; z-index: 1001; pointer-events: none; background: var(--ink); color: var(--paper); padding: 4px 8px;
   border-radius: var(--r); font-size: var(--text-xs); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
@@ -1080,10 +1090,10 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space:
 
     <section class="step" id="step3">
       <div class="step-head"><span class="num" aria-hidden="true">3</span><h2>Nykyinen energiankulutus</h2></div>
-      <p class="hint">Kulutus annetaan sähkömittareittain ja lämmityspiireittäin, koska tieto tulee laskuilta ja mittareilta, ei rakennuksittain. Vuoden pitää olla sama kuin tarkasteluvuosi.</p>
+      <p class="hint">Kulutus annetaan sähkömittareittain ja lämmitysjärjestelmittäin (kattila tai lämpöpumppu ja sen rakennukset), koska tieto tulee laskuilta ja mittareilta, ei rakennuksittain. Vuoden pitää olla sama kuin tarkasteluvuosi.</p>
       <div id="groupCards"></div>
       <div class="row wrap">
-        <button type="button" class="btn small" id="addCircuit">Lisää lämmityspiiri</button>
+        <button type="button" class="btn small" id="addCircuit">Lisää lämmitysjärjestelmä</button>
         <button type="button" class="btn small" id="addMeter">Lisää sähkömittari</button>
       </div>
     </section>
@@ -1119,6 +1129,7 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space:
       <button type="button" class="btn primary wide" id="runModel">Laske tuntiprofiili</button>
       <div id="checklist" class="checklist"></div>
       <div class="row wrap">
+        <button type="button" class="btn small" id="newProject">Uusi projekti</button>
         <button type="button" class="btn small" id="saveProject">Tallenna projekti</button>
         <label class="btn small file">Avaa projekti
           <input type="file" id="loadProject" accept=".json,application/json">
@@ -1164,8 +1175,8 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space:
 
 <dialog id="docsDialog" class="docs-dialog" aria-label="Menetelmät ja lähteet"><header><strong>Menetelmät, oletukset ja lähteet</strong><button type="button" class="btn small" id="docsClose">Sulje</button></header><div class="docs-body"><h1 id="rakennushaku-menetelmät-ja-lähteet">Rakennushaku – menetelmät ja
 lähteet</h1>
-<p><strong>Versio:</strong> 0.5.0 · <strong>Päivitetty:</strong>
-3.11.2026<br />
+<p><strong>Versio:</strong> 0.6.0 · <strong>Päivitetty:</strong>
+4.11.2026<br />
 <strong>Tekijät:</strong> Miiro Jääskeläinen ja Suvi Karirinne,
 Seinäjoen ammattikorkeakoulu (SEAMK), Maatalous ja energia
 -tutkimusryhmä<br />
@@ -1409,8 +1420,27 @@ arvot: VTT Technology 258 [14].</td>
 <td>0,85 (muokattava)</td>
 <td>Laskurin oletus (C26) [18]</td>
 </tr>
+<tr class="even">
+<td>kWh tai MWh sähköä lämmitykseen</td>
+<td>lämpö = sähkö × COP</td>
+<td>Suora sähkölämmitys COP 1; lämpöpumppu käyttäjän SCOP, oletus 3,0
+(oma oletus)</td>
+</tr>
 </tbody>
 </table>
+<p><strong>Lämmitystapa.</strong> Jokaiselle lämmitysjärjestelmälle
+valitaan lämmitystapa: kattila (hake, pelletti, öljy), kaukolämpö,
+sähkölämmitys tai lämpöpumppu. Kaukolämpö annetaan lämpönä (kWh tai MWh
+laskulta). Sähkölämmityksen ja lämpöpumpun lämmityssähkö kulkee valitun
+sähkömittarin kautta, joten se käsitellään luvussa 8, ettei sitä lasketa
+kahteen kertaan.</p>
+<ul>
+<li><strong>SCOP on vakio</strong> koko vuoden (oma yksinkertaistus).
+Todellisuudessa ilma-vesilämpöpumpun COP laskee pakkasella, joten
+lämmityssähkön talvihuippu on mallissa liian pieni ja lämmön huippu
+lämmityssähköstä johdettuna liian suuri tai pieni sen mukaan, mistä
+tieto tulee. Maalämpöpumpulle vakio on parempi oletus.</li>
+</ul>
 <h2 id="rakennusmalli">7. Rakennusmalli</h2>
 <p>Jokaiselle rakennukselle lasketaan tunneittain sääosa W ja perusosa B
 sekä lämmölle että sähkölle:</p>
@@ -1593,8 +1623,9 @@ Muuten liittymän mitattu kulutus kohdistuisi kokonaan lämmitettyjen
 rakennusten profiilille.</p>
 <h2 id="kalibrointi-tilan-kulutustietoon">8. Kalibrointi tilan
 kulutustietoon</h2>
-<p>Kalibrointi tehdään lämmityspiireittäin ja sähkömittareittain, koska
-kulutustieto tulee laskuilta ja mittareilta, ei rakennuksittain.</p>
+<p>Kalibrointi tehdään lämmitysjärjestelmittäin (lämmityspiireittäin) ja
+sähkömittareittain, koska kulutustieto tulee laskuilta ja mittareilta,
+ei rakennuksittain.</p>
 <table>
 <colgroup>
 <col style="width: 33%" />
@@ -1663,6 +1694,28 @@ piirin tunnittaista lämpötehoa verrataan siihen ja ylittävät tunnit
 raportoidaan. Laskuri raportoi vastaavan tilanteen lämmitysvajeena
 (K13–L13) [18].</li>
 </ul>
+<p><strong>Sähkölämmitys ja lämpöpumppu.</strong> Laskuri tuottaa
+lämmöntarpeen (sarake F) omista lähteistään ja laskee niiden sähkön itse
+[18]. Siksi viennin sähkösarake E on <em>muu sähkö</em>: nykyinen
+lämmityssähkö ei saa olla siinä, tai se laskettaisiin kahteen kertaan.
+Sovellus raportoi nykyisen lämmityssähkön erikseen.</p>
+<ul>
+<li><strong>Lämmityssähkö mitataan erikseen</strong> (alamittari tai
+lämpöpumpun oma mittari, vuosi, kuukaudet tai tunnit): lämpö =
+lämmityssähkö × COP, ja lämmityssähkö vähennetään sähkömittarin tiedosta
+kuten tunnetun rakennuksen kulutus. Lämpömittarin lukema voidaan antaa
+myös suoraan lämpönä.</li>
+<li><strong>Lämmityssähköä ei mitata erikseen:</strong> sähkömittarin
+tieto sovitetaan kolmella osalla yhtä aikaa: E ≈ c₁·ilmanvaihto +
+c₂·(perussähkö + lämmön perusosa / COP) + c₃·lämmön sääosa / COP, c ≥ 0.
+Ratkaisu haetaan kokeilemalla kaikki sarakeyhdistelmät ja valitsemalla
+pienin neliösumma ei-negatiivisista ratkaisuista [21]. Lämmitysosuus
+kerrotaan COP:llä lämmöksi. Kuukausi- tai tuntitiedolla lämmityksen
+osuus erottuu, koska se on talvipainotteinen ja ilmanvaihto
+kesäpainotteinen. <strong>Pelkällä vuosisummalla</strong> osuus tulee
+mallin oletusparametreista eikä ole luotettava; kuukausitiedot ovat
+tällöin suositeltavia.</li>
+</ul>
 <h2 id="pörssihinnat">9. Pörssihinnat</h2>
 <ul>
 <li><strong>Lähde.</strong> Hinnat haetaan Sähkötin-palvelusta, joka
@@ -1683,7 +1736,25 @@ tarkasteluunsa. Selaimesta suoraan haettavissa olevista lähteistä vain
 Sähkötin salli kutsut (CORS); Elering ja Energy-Charts eivät sallineet
 (todettu 31.10.2026).</li>
 </ul>
-<h2 id="viennit-laskuriin">10. Viennit laskuriin</h2>
+<h2 id="tulokset-ja-viennit-laskuriin">10. Tulokset ja viennit
+laskuriin</h2>
+<p><strong>Tulosnäkymä.</strong></p>
+<ul>
+<li><strong>Pysyvyyskäyrä</strong> lämpö- ja sähköteholle: vuoden tunnit
+järjestettyinä suurimmasta tehosta pienimpään. Kattiloiden,
+lämpöpumppujen ja CHP:n mitoitus tehdään siitä: esimerkiksi
+peruskuormalaite mitoitetaan tehoon, joka ylittyy tuhansia tunteja
+vuodessa, ja huippu katetaan muilla. Annettu lämmitysteho piirretään
+viivana, ja ylittävien tuntien määrä kerrotaan.</li>
+<li><strong>Ominaiskulutus kWh/m²</strong> rakennuksittain kertoo, onko
+kalibrointi jakanut kulutuksen uskottavasti. Arvot alle 20 tai yli 800
+kWh/m² merkitään poikkeaviksi (oma karkea raja; tarkoitus on huomata
+virheellinen ala tai käyttötyyppi, ei arvioida rakennusta).</li>
+<li><strong>Vanhentunut tulos.</strong> Kun valintoja muutetaan,
+edellinen tulos jää näkyviin himmennettynä, eikä sitä voi viedä ennen
+uudelleenlaskentaa.</li>
+</ul>
+<p><strong>Viennit.</strong></p>
 <table>
 <colgroup>
 <col style="width: 33%" />
@@ -1712,22 +1783,23 @@ Sähkötin salli kutsut (CORS); Elering ja Energy-Charts eivät sallineet
 </tr>
 </tbody>
 </table>
-<p>CSV-tiedostoissa on puolipiste-erotin, desimaalipilkku ja UTF-8 BOM
-suomenkielistä Exceliä varten. Laskurin oma aurinkosähkö- ja
-lämpöpumppulaskenta käyttää vielä laskurin esimerkkivuotta [18].
-Ulkolämpötila viedään sarakkeeksi G myöhempää käyttöä varten.</p>
+<p>Sähkösarake E on muu sähkö kuin lämmitys (luku 8). CSV-tiedostoissa
+on puolipiste-erotin, desimaalipilkku ja UTF-8 BOM suomenkielistä
+Exceliä varten. Laskurin oma aurinkosähkö- ja lämpöpumppulaskenta
+käyttää vielä laskurin esimerkkivuotta [18]. Ulkolämpötila viedään
+sarakkeeksi G myöhempää käyttöä varten.</p>
 <h2 id="toteutus-ja-testaus">11. Toteutus ja testaus</h2>
 <ul>
 <li><strong>Kaksi toteutusta.</strong> Sovellus on Python-palvelin
 (FastAPI) ja yhden tiedoston selainversio. Selainversion
 laskentamoottori (<code>web/engine.js</code>) antaa samat tulokset kuin
-Python-malli; <code>web/check_equivalence.py</code> vertaa niitä
-kahdeksassa skenaariossa (ero 0,000 kWh/h).</li>
-<li><strong>Automaattiset testit.</strong> 37 testiä kattavat
+Python-malli; <code>web/check_equivalence.py</code> vertaa niitä 14
+skenaariossa, myös lämmitystavat (ero 0,000 kWh/h).</li>
+<li><strong>Automaattiset testit.</strong> 41 testiä kattavat
 aikakannan, kesäajan, tiedostojen jäsennyksen, rajapintavastausten
-käsittelyn, kalibrointitavat, optiot, vientimuodot ja 3D-näkymän
-tiedostot (<code>pytest</code>). GitHub Actions ajaa testit ja
-vastaavuustarkistuksen jokaisesta muutoksesta.</li>
+käsittelyn, kalibrointitavat, lämmitystavat, optiot, vientimuodot ja
+3D-näkymän tiedostot (<code>pytest</code>). GitHub Actions ajaa testit
+ja vastaavuustarkistuksen jokaisesta muutoksesta.</li>
 <li><strong>Live-testit 31.10.2026.</strong> MML (osoitehaku,
 kiinteistöhaku pisteellä ja tunnuksella, rakennukset, ortokuva), FMI
 (asemat, vuoden 2025 tuntisarja), Open-Meteo ja Sähkötin (2023–2026)
@@ -1826,6 +1898,70 @@ kiinteistölle</td>
 </tr>
 </tbody>
 </table>
+<p><strong>Korjattu versiossa 0.6.0 (energianeuvojan näkökulmasta tehty
+käyttöliittymäarvio 4.11.2026)</strong></p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Havainto</th>
+<th>Korjaus</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Lämpöpiiri oletti polttoaineen; sähkölämmitteinen rakennus saattoi
+tulla lasketuksi kahteen kertaan</td>
+<td>Lämmitystapa (kattila, kaukolämpö, sähkö, lämpöpumppu);
+lämmityssähkö erotetaan mittarista (luku 8)</td>
+</tr>
+<tr class="even">
+<td>Mitoitukseen tarvittava tehojakauma selvisi vain CSV:stä</td>
+<td>Pysyvyyskäyrät ja lämmitystehon viiva (luku 10)</td>
+</tr>
+<tr class="odd">
+<td>Kalibroinnin jakoa rakennuksille ei voinut arvioida</td>
+<td>kWh/m² rakennusriville ja poikkeavan arvon merkintä</td>
+</tr>
+<tr class="even">
+<td>Tarkistuslista näytti “Kulutustiedot annettu” ennen kuin mitään oli
+valittu</td>
+<td>Tieto tarkistetaan vain käytössä olevista järjestelmistä ja
+mittareista</td>
+</tr>
+<tr class="odd">
+<td>Negatiivinen tai nolla-ala hyväksyttiin; käsin lisätyn rakennuksen
+100 m²:n oletus jäi huomaamatta</td>
+<td>Ala tarkistetaan; oletusala merkitään korttiin ja
+tarkistuslistaan</td>
+</tr>
+<tr class="even">
+<td>Tulokset katosivat mistä tahansa muutoksesta</td>
+<td>Vanhentunut tulos jää näkyviin himmennettynä</td>
+</tr>
+<tr class="odd">
+<td>Ilmoitukset korvasivat toisensa ja peittivät tuloksia</td>
+<td>Ilmoitukset pinoutuvat vasempaan alakulmaan</td>
+</tr>
+<tr class="even">
+<td>Edellisen asiakkaan luonnos palautui automaattisesti</td>
+<td><em>Uusi projekti</em> tyhjentää luonnoksen</td>
+</tr>
+<tr class="odd">
+<td>Rakennuksen otsikon klikkaus poisti sen laskennasta</td>
+<td>Valinta vain valintaruudusta (kartalla klikkaus vaihtaa
+valinnan)</td>
+</tr>
+<tr class="even">
+<td>Yksikkövalinnalla ei ollut nimeä ruudunlukijalle (WCAG,
+kriittinen)</td>
+<td>Nimet ja painikeryhmien tila; axe-core: ei WCAG A/AA -rikkeitä</td>
+</tr>
+</tbody>
+</table>
 <p><strong>Avoimet, vakavuusjärjestyksessä</strong></p>
 <ol type="1">
 <li><strong>Oletusparametreja ei ole validoitu</strong> (suuri). H,
@@ -1863,6 +1999,12 @@ voi silti hakea.</li>
 (pieni). Selainversiossa jokainen käyttäjä tarvitsee oman MML-avaimen.
 Jos SEAMK tarjoaa sovellusta palveluna, Open-Meteon ja Sähkötinin
 ei-kaupallisen käytön ehdot on tarkistettava.</li>
+<li><strong>Lämmityssähkön erottelu pelkästä vuosisummasta</strong>
+(keskisuuri). Kun sähkölämmitteisen tilan ainoa tieto on liittymän
+vuosisumma, lämmityksen osuus tulee mallin oletusparametreista.
+Suositus: anna kuukausitiedot (Datahub) tai lämmityksen alamittarin
+lukema. Lämpöpumpun SCOP on vakio, joten ilma-vesilämpöpumpun talven
+lämmityssähkö jää liian pieneksi.</li>
 <li><strong>3D-näkymän korkeudet ja maasto</strong> (pieni). Korkeudet
 ovat arvioita eikä maastoa ole. Näkymä havainnollistaa kulutuksen
 jakautumista, mutta sitä ei pidä käyttää esimerkiksi aurinkopaneelien
@@ -2055,7 +2197,7 @@ sisältöä ei voitu tarkistaa, on merkitty erikseen. Tekoälyn käyttö ei
 itsessään varmista laskennan oikeellisuutta: tarkistukset, lähtötiedot
 ja mallin rajaukset ratkaisevat tulosten käyttökelpoisuuden.</p>
 </div></dialog>
-<div id="toast" class="toast" role="status" hidden></div>
+<div id="toast" class="toasts" role="status" aria-live="polite"></div>
 <div id="tip" class="tip" hidden></div>
 
 <script>/* Leaflet 1.9.4 (https://leafletjs.com), BSD-2-Clause:
@@ -2972,23 +3114,126 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   }
   RH.calibrate = calibrate;
 
+  // ---- several parts at once (an electricity meter that also carries heating electricity); same steps as model.py
+  function solve(G, h) {
+    const n = h.length;
+    const A = G.map((row, i) => row.slice().concat([h[i]]));
+    let scale = 1;
+    for (let i = 0; i < n; i++) scale = Math.max(scale, Math.abs(A[i][i]));
+    for (let c = 0; c < n; c++) {
+      let p = c;
+      for (let r = c + 1; r < n; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
+      if (Math.abs(A[p][c]) <= 1e-12 * scale) return null;
+      const tmp = A[c]; A[c] = A[p]; A[p] = tmp;
+      for (let r = c + 1; r < n; r++) {
+        const f = A[r][c] / A[c][c];
+        for (let k = c; k <= n; k++) A[r][k] -= f * A[c][k];
+      }
+    }
+    const x = new Array(n).fill(0);
+    for (let r = n - 1; r >= 0; r--) {
+      let acc = A[r][n];
+      for (let k = r + 1; k < n; k++) acc -= A[r][k] * x[k];
+      x[r] = acc / A[r][r];
+    }
+    return x;
+  }
+  function dot(a, b) { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; }
+  function nnlsCols(X, y) {
+    const n = X.length;
+    const G = X.map((xi) => X.map((xj) => dot(xi, xj))), h = X.map((xi) => dot(xi, y)), yy = dot(y, y);
+    let bestSse = null, best = new Array(n).fill(0);
+    for (let mask = 1; mask < (1 << n); mask++) {
+      const idx = [...Array(n).keys()].filter((i) => (mask >> i) & 1);
+      if (idx.some((i) => G[i][i] <= 0)) continue;
+      const sol = solve(idx.map((i) => idx.map((j) => G[i][j])), idx.map((i) => h[i]));
+      if (!sol || sol.some((v) => v < 0)) continue;
+      const c = new Array(n).fill(0);
+      idx.forEach((i, k) => { c[i] = sol[k]; });
+      let sse = yy;
+      for (let i = 0; i < n; i++) { sse -= 2 * c[i] * h[i]; for (let j = 0; j < n; j++) sse += c[i] * G[i][j] * c[j]; }
+      if (bestSse === null || sse < bestSse - 1e-9 * Math.max(1, Math.abs(yy))) { bestSse = sse; best = c; }
+    }
+    return best;
+  }
+  const addArr = (arrs) => { const o = new Array(HOURS).fill(0); arrs.forEach((a) => { for (let i = 0; i < HOURS; i++) o[i] += a[i]; }); return o; };
+  function calibrateCols(cols, data, year) {
+    const n = cols.length, model = addArr(cols);
+    const totalModel = model.reduce((a, v) => a + v, 0);
+    const kind = (data && data.kind) || "none";
+    const rep = { kind, model_total_kwh: Math.round(totalModel) };
+    if (kind === "annual") {
+      const target = +data.kwh || 0;
+      if (target <= 0 || totalModel <= 0) { rep.warning = "Vuosikulutus tai mallin tulos on nolla; mallin oletus käytössä."; return [cols.slice(), rep]; }
+      const k = target / totalModel;
+      Object.assign(rep, { scale: r3(k), target_kwh: Math.round(target), note: "Vuosisumma kalibroitu; lämmityssähkön ja muun sähkön suhde tulee mallista." });
+      return [cols.map((c) => c.map((v) => v * k)), rep];
+    }
+    if (kind === "monthly") {
+      const mvals = (data.kwh_months || []).concat(new Array(12).fill(null)).slice(0, 12).map((v) => (v == null || v === "" ? null : +v));
+      const idx = mvals.map((v, i) => (v == null ? -1 : i)).filter((i) => i >= 0);
+      if (idx.length < n + 1) { rep.warning = `Kuukausiarvoja on alle ${n + 1}; mallin oletus käytössä.`; return [cols.slice(), rep]; }
+      const Xm = cols.map((c) => monthlySum(c, year));
+      const coef = nnlsCols(Xm.map((x) => idx.map((i) => x[i])), idx.map((i) => mvals[i]));
+      const fit = [...Array(12)].map((_, m) => coef.reduce((s, c, j) => s + c * Xm[j][m], 0));
+      Object.assign(rep, { coef: coef.map(r3), months_used: idx.length, limit: 0.15,
+        cv_rmse: r3(cvRmse(idx.map((i) => mvals[i]), idx.map((i) => fit[i]), n)),
+        target_kwh: Math.round(idx.reduce((s, i) => s + mvals[i], 0)) });
+      if (idx.length < 12) rep.note = `${12 - idx.length} kuukautta täydennetty sovitteella.`;
+      return [cols.map((c, j) => c.map((v) => coef[j] * v)), rep];
+    }
+    if (kind === "hourly") {
+      const vals = data.values || [];
+      if (vals.length !== HOURS) { rep.warning = "Tuntisarjan pituus ei ole 8 760; mallin oletus käytössä."; return [cols.slice(), rep]; }
+      const ok = []; vals.forEach((v, i) => { if (v != null) ok.push(i); });
+      if (ok.length < 24 * 14) { rep.warning = "Mitattuja tunteja on alle kaksi viikkoa; mallin oletus käytössä."; return [cols.slice(), rep]; }
+      const coef = nnlsCols(cols.map((c) => ok.map((i) => c[i])), ok.map((i) => vals[i]));
+      const parts = cols.map((c, j) => c.map((v) => coef[j] * v)), fit = addArr(parts);
+      const out = fit.map((f, i) => (vals[i] != null ? +vals[i] : f));
+      const comps = parts.map((pj, j) => out.map((o, i) => o * (fit[i] > 0 ? pj[i] / fit[i] : model[i] > 0 ? cols[j][i] / model[i] : 1 / n)));
+      const filled = HOURS - ok.length;
+      Object.assign(rep, { coef: coef.map(r3), hours_measured: ok.length, hours_filled: filled, limit: 0.30,
+        cv_rmse: r3(cvRmse(ok.map((i) => +vals[i]), ok.map((i) => fit[i]), n)),
+        target_kwh: Math.round(out.reduce((s, v) => s + v, 0)),
+        note: "Mitatut tunnit käytetään sellaisenaan" + (filled ? "; puuttuvat tunnit täydennetty sovitteella." : ".") });
+      return [comps, rep];
+    }
+    rep.note = "Ei kulutustietoa: tulos on mallin oletus, ei tilan kulutus.";
+    return [cols.slice(), rep];
+  }
+  RH.calibrateCols = calibrateCols;
+
   RH.HEAT_UNITS = {
     kWh: { label: "kWh lämpöä", k: 1, fuel: false }, MWh: { label: "MWh lämpöä", k: 1000, fuel: false },
     "i-m3": { label: "i-m³ haketta", k: 800, fuel: true }, MWh_pa: { label: "MWh polttoainetta", k: 1000, fuel: true },
     t_pelletti: { label: "t pellettiä", k: 4700, fuel: true }, l_oljy: { label: "l kevyttä polttoöljyä", k: 10, fuel: true },
+    // electric heating: electricity used for heating (sub-meter); heat = electricity × COP
+    kWh_el: { label: "kWh sähköä lämmitykseen", k: 1, fuel: false, el: true }, MWh_el: { label: "MWh sähköä lämmitykseen", k: 1000, fuel: false, el: true },
   };
-  RH.heatToKwh = function (value, unit, eff = 0.85, chip = 0.8) {
+  RH.heatToKwh = function (value, unit, eff = 0.85, chip = 0.8, cop = 1) {
     const u = RH.HEAT_UNITS[unit] || RH.HEAT_UNITS.kWh;
     const k = unit === "i-m3" ? chip * 1000 : u.k;
+    if (u.el) return +value * k * cop;
     return +value * k * (u.fuel ? eff : 1);
   };
+  RH.HEATING_SYSTEMS = { fuel: "Kattila (hake, pelletti, öljy)", district: "Kaukolämpö", electric: "Sähkölämmitys", heatpump: "Lämpöpumppu" };
+  function heatingCop(d) {
+    const sys = (d && d.system) || "fuel";
+    if (sys === "heatpump") return Math.max(1, +(d && d.cop) || 3);
+    if (sys === "electric") return 1;
+    return null;
+  }
+  RH.heatingCop = heatingCop;
   RH.prepare = function (project) {
     const num = (v) => (v == null || v === "" ? null : +v);
     const circuits = (project.circuits || []).map((c) => {
       const d = { ...(c.data || {}) }, eff = +d.efficiency || 0.85, chip = +d.chip_density || 0.8, unit = d.unit || "kWh";
-      if (d.kind === "annual" && num(d.value) != null) d.kwh = RH.heatToKwh(d.value, unit, eff, chip);
+      const cop = heatingCop(d) || 1;
+      if (d.kind === "annual" && num(d.value) != null) d.kwh = RH.heatToKwh(d.value, unit, eff, chip, cop);
       if (num(d.base_share_pct) != null) d.base_share = +d.base_share_pct / 100;
-      if (d.kind === "monthly") d.kwh_months = (d.months || []).map((v) => (num(v) == null ? null : RH.heatToKwh(v, unit, eff, chip)));
+      if (d.kind === "monthly") d.kwh_months = (d.months || []).map((v) => (num(v) == null ? null : RH.heatToKwh(v, unit, eff, chip, cop)));
+      // an hourly sub-meter file of heating electricity (kWh/h): heat = electricity × COP
+      if (d.kind === "hourly" && (RH.HEAT_UNITS[unit] || {}).el && d.values) d.values = d.values.map((v) => (v == null ? null : +v * cop));
       return { ...c, data: d };
     });
     const meters = (project.meters || []).map((m) => {
@@ -3008,14 +3253,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   };
 
   const mwh = (kwh) => (kwh / 1000).toFixed(1).replace(".", ",");
-  function subtractKnown(data, K, year) {
+  function subtractKnown(data, K, year, what) {
     const Ksum = K.reduce((a, v) => a + v, 0);
     if (!data || Ksum <= 0) return [data, null];
     const d = { ...data };
     if (data.kind === "annual") {
       const rest = (+data.kwh || 0) - Ksum;
       d.kwh = rest;
-      if (rest <= 0) return [d, `Tunnettujen rakennusten kulutus (${mwh(Ksum)} MWh) on vähintään piirin kulutus (${mwh(+data.kwh || 0)} MWh); muille ei jää lämpöä.`];
+      if (rest <= 0) {
+        if (what) return [d, `${what[0].toUpperCase()}${what.slice(1)} (${mwh(Ksum)} MWh) on vähintään mittarin kulutus (${mwh(+data.kwh || 0)} MWh); muulle sähkölle ei jää mitään.`];
+        return [d, `Tunnettujen rakennusten kulutus (${mwh(Ksum)} MWh) on vähintään piirin kulutus (${mwh(+data.kwh || 0)} MWh); muille ei jää lämpöä.`];
+      }
       return [d, null];
     }
     if (data.kind === "monthly") {
@@ -3027,7 +3275,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         if (r < 0) { neg++; r = 0; }
         return r;
       });
-      return [d, neg ? `${neg} kuukautena tunnettujen rakennusten osuus ylitti mitatun; erotus rajattiin nollaan.` : null];
+      return [d, neg ? `${neg} kuukautena ${what || "tunnettujen rakennusten osuus"} ylitti mitatun; erotus rajattiin nollaan.` : null];
     }
     if (data.kind === "hourly") {
       let neg = 0;
@@ -3037,7 +3285,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         if (r < 0) { neg++; r = 0; }
         return r;
       });
-      return [d, neg ? `${neg} tuntina tunnettujen rakennusten osuus ylitti mitatun; erotus rajattiin nollaan.` : null];
+      return [d, neg ? `${neg} tuntina ${what || "tunnettujen rakennusten osuus"} ylitti mitatun; erotus rajattiin nollaan.` : null];
     }
     return [d, null];
   }
@@ -3092,6 +3340,77 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     return [series, per, rep];
   }
 
+  const shareOf = (part, whole, n) => part.map((v, i) => (whole[i] > 0 ? v / whole[i] : 1 / n));
+  function groupJoint(members, parts, data, year, defs) {
+    const per = {};
+    members.forEach((b) => { per[b.id] = new Array(HOURS).fill(0); });
+    const known = members.filter((b) => (+b.known_el_kwh || 0) > 0), rest = members.filter((b) => !known.includes(b));
+    const K = new Array(HOURS).fill(0);
+    for (const b of known) {
+      const sb = scaled(parts[b.id].el_w.map((v, i) => v + parts[b.id].el_b[i]), +b.known_el_kwh);
+      per[b.id] = sb;
+      for (let i = 0; i < HOURS; i++) K[i] += sb[i];
+    }
+    const [d, warn] = subtractKnown(data, K, year);
+    const Wv = addArr(rest.map((b) => parts[b.id].el_w)), Be = addArr(rest.map((b) => parts[b.id].el_b));
+    for (const df of defs) {
+      df.W = addArr(df.members.map((b) => parts[b.id].heat_w)).map((v) => v / df.cop);
+      df.B = addArr(df.members.map((b) => parts[b.id].heat_b)).map((v) => v / df.cop);
+    }
+    const Wh = addArr(defs.map((df) => df.W)), Bh = addArr(defs.map((df) => df.B));
+    const BeBh = Be.map((v, i) => v + Bh[i]);
+    const cols = [Wv, BeBh, Wh];
+    let comps, rep;
+    if (d && d.kind === "annual" && (+d.kwh || 0) <= 0) {
+      comps = [0, 1, 2].map(() => new Array(HOURS).fill(0));
+      rep = { kind: "annual", model_total_kwh: Math.round(addArr(cols).reduce((a, v) => a + v, 0)) };
+    } else {
+      [comps, rep] = calibrateCols(cols, d, year);
+      comps = comps.map((c) => c.map((v) => Math.max(0, v)));
+    }
+    if (warn) rep.warning = warn;
+    const baseEl = rest.length ? comps[1].map((v, i) => v * (BeBh[i] > 0 ? Be[i] / BeBh[i] : 1)) : new Array(HOURS).fill(0);
+    const Rel = comps[0].map((v, i) => v + baseEl[i]);
+    const Rhel = comps[2].map((v, i) => v + (comps[1][i] - baseEl[i]));
+    const modelEl = Wv.map((v, i) => v + Be[i]);
+    for (const b of rest) {
+      const sh = shareOf(parts[b.id].el_w.map((v, i) => v + parts[b.id].el_b[i]), modelEl, rest.length);
+      per[b.id] = Rel.map((v, i) => v * sh[i]);
+    }
+    const modelH = Wh.map((v, i) => v + Bh[i]);
+    for (const df of defs) {
+      const sh = shareOf(df.W.map((v, i) => v + df.B[i]), modelH, defs.length);
+      df.hel = Rhel.map((v, i) => v * sh[i]);
+      df.heat = df.hel.map((v) => v * df.cop);
+      const heatModel = addArr(df.members.map((b) => parts[b.id].heat_w.map((v, i) => v + parts[b.id].heat_b[i])));
+      df.per = {};
+      for (const b of df.members) {
+        const sb = shareOf(parts[b.id].heat_w.map((v, i) => v + parts[b.id].heat_b[i]), heatModel, df.members.length);
+        df.per[b.id] = df.heat.map((v, i) => v * sb[i]);
+      }
+    }
+    const helTotal = Rhel.reduce((a, v) => a + v, 0);
+    const note = `Lämmityssähkö ${mwh(helTotal)} MWh erotettu mittarin kulutuksesta (${defs.map((df) => df.name).join(", ")}).`;
+    rep.note = note + (rep.note ? " " + rep.note : "");
+    rep.heating_el_kwh = Math.round(helTotal);
+    if (known.length) {
+      const Ksum = K.reduce((a, v) => a + v, 0);
+      rep.note = `Tunnettu kulutus ${mwh(Ksum)} MWh: ${known.map((b) => b.name || b.id).join(", ")}. ` + rep.note;
+      rep.known_kwh = Math.round(Ksum);
+    }
+    return [K.map((v, i) => v + Rel[i]), per, rep];
+  }
+  function capacityCheck(rep, series, cap) {
+    if (cap == null || cap === "" || !(+cap > 0)) return;
+    const over = series.filter((v) => v > +cap).length;
+    const peak = series.reduce((a, v) => Math.max(a, v), 0);
+    rep.capacity_kw = +cap; rep.hours_over_capacity = over;
+    if (over) {
+      const msg = `Huipputeho ${Math.round(peak)} kW ylittää kattilan tehon ${Math.round(+cap)} kW ${over} tuntina. Tarkista profiili (esim. broilerierien ajoitus) tai kattilan teho.`;
+      rep.warning = rep.warning ? rep.warning + " " + msg : msg;
+    }
+  }
+
   RH.run = function (project) {
     const year = +project.year;
     const t = project.temperature || [];
@@ -3102,32 +3421,69 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     if (!blds.length) throw new HttpError("Valitse vähintään yksi rakennus.", 422);
     const parts = {};
     blds.forEach((b) => { parts[b.id] = buildingSeries(b, t, year); });
-    const heat = new Float64Array(HOURS), el = new Float64Array(HOURS);
+    const heat = new Float64Array(HOURS), el = new Float64Array(HOURS), hel = new Float64Array(HOURS);
     const per = {};
     blds.forEach((b) => { per[b.id] = { heat: new Float64Array(HOURS), el: new Float64Array(HOURS) }; });
     const reports = { circuits: [], meters: [] };
-    const cfg = [["circuits", "heat_w", "heat_b", "heat", heat, "circuit", ["both", "heat"], "known_heat_kwh"],
-      ["meters", "el_w", "el_b", "el", el, "meter", ["both", "el"], "known_el_kwh"]];
-    for (const [grpKey, pw, pb, outKey, tot, gid, scopes, knownKey] of cfg) {
-      for (const g of project[grpKey] || []) {
-        const members = blds.filter((b) => b[gid] === g.id && scopes.includes(b.scope || "both"));
-        if (!members.length) continue;
-        const [series, pr, rep] = group(members, parts, pw, pb, knownKey, g.data, year);
-        for (let i = 0; i < HOURS; i++) tot[i] += series[i];
-        for (const id in pr) for (let i = 0; i < HOURS; i++) per[id][outKey][i] += pr[id][i];
-        const peak = series.reduce((a, v) => Math.max(a, v), 0);
-        Object.assign(rep, { id: g.id, name: g.name || g.id, members: members.map((b) => b.id),
-          annual_kwh: Math.round(series.reduce((a, v) => a + v, 0)), peak_kw: Math.round(peak * 10) / 10 });
-        const cap = g.data && g.data.capacity_kw;
-        if (cap != null && cap !== "" && +cap > 0) {
-          const over = series.filter((v) => v > +cap).length;
-          rep.capacity_kw = +cap; rep.hours_over_capacity = over;
-          if (over) {
-            const msg = `Huipputeho ${Math.round(peak)} kW ylittää kattilan tehon ${Math.round(+cap)} kW ${over} tuntina. Tarkista profiili (esim. broilerierien ajoitus) tai kattilan teho.`;
-            rep.warning = rep.warning ? rep.warning + " " + msg : msg;
-          }
-        }
-        reports[grpKey].push(rep);
+    const meters = project.meters || [], mids = meters.map((m) => m.id), meterById = {};
+    meters.forEach((m) => { meterById[m.id] = m; });
+    const helKnown = {}, helNames = {}, deferred = {};
+    mids.forEach((m) => { helKnown[m] = new Array(HOURS).fill(0); helNames[m] = []; deferred[m] = []; });
+    const hasData = (g) => !!g && (((g.data || {}).kind) || "none") !== "none";
+    const sumA = (a) => a.reduce((s, v) => s + v, 0), peakA = (a) => a.reduce((s, v) => Math.max(s, v), 0);
+
+    for (const g of project.circuits || []) {
+      const members = blds.filter((b) => b.circuit === g.id && ["both", "heat"].includes(b.scope || "both"));
+      if (!members.length) continue;
+      const d = g.data || {}, cop = heatingCop(d);
+      const mid = mids.includes(d.el_meter) ? d.el_meter : (mids.length ? mids[0] : null);
+      const base = { id: g.id, name: g.name || g.id, members: members.map((b) => b.id), system: d.system || "fuel" };
+      if (cop && mid && (d.kind || "none") === "none" && hasData(meterById[mid])) {
+        const rep = { ...base, kind: "from_meter", cop, el_meter: mid };
+        deferred[mid].push({ g, name: base.name, members, cop, rep });
+        reports.circuits.push(rep);
+        continue;
+      }
+      const [series, pr, rep] = group(members, parts, "heat_w", "heat_b", "known_heat_kwh", d, year);
+      for (let i = 0; i < HOURS; i++) heat[i] += series[i];
+      for (const id in pr) for (let i = 0; i < HOURS; i++) per[id].heat[i] += pr[id][i];
+      Object.assign(rep, base, { annual_kwh: Math.round(sumA(series)), peak_kw: Math.round(peakA(series) * 10) / 10 });
+      if (cop) {
+        const h = series.map((v) => v / cop);
+        for (let i = 0; i < HOURS; i++) hel[i] += h[i];
+        Object.assign(rep, { cop, heating_el_kwh: Math.round(sumA(h)), el_meter: mid });
+        if (mid) { for (let i = 0; i < HOURS; i++) helKnown[mid][i] += h[i]; helNames[mid].push(base.name); }
+      }
+      capacityCheck(rep, series, d.capacity_kw);
+      reports.circuits.push(rep);
+    }
+
+    for (const g of meters) {
+      const members = blds.filter((b) => b.meter === g.id && ["both", "el"].includes(b.scope || "both"));
+      const defs = deferred[g.id] || [];
+      if (!members.length && !defs.length) continue;
+      let data = g.data, hwarn = null;
+      const Hk = helKnown[g.id], HkSum = sumA(Hk);
+      if (HkSum > 0) [data, hwarn] = subtractKnown(data, Hk, year, "lämmityssähkö");
+      const [series, pr, rep] = defs.length ? groupJoint(members, parts, data, year, defs) : group(members, parts, "el_w", "el_b", "known_el_kwh", data, year);
+      if (HkSum > 0) {
+        const msg = `Lämmityssähkö ${mwh(HkSum)} MWh vähennetty mittarin tiedoista (${helNames[g.id].join(", ")}).`;
+        rep.note = msg + (rep.note ? " " + rep.note : "");
+        rep.heating_el_kwh = Math.round(HkSum + (+rep.heating_el_kwh || 0));
+        if (hwarn) rep.warning = rep.warning ? rep.warning + " " + hwarn : hwarn;
+      }
+      for (let i = 0; i < HOURS; i++) el[i] += series[i];
+      for (const id in pr) for (let i = 0; i < HOURS; i++) per[id].el[i] += pr[id][i];
+      Object.assign(rep, { id: g.id, name: g.name || g.id, members: members.map((b) => b.id),
+        annual_kwh: Math.round(sumA(series)), peak_kw: Math.round(peakA(series) * 10) / 10 });
+      reports.meters.push(rep);
+      for (const df of defs) {
+        for (let i = 0; i < HOURS; i++) { heat[i] += df.heat[i]; hel[i] += df.hel[i]; }
+        for (const id in df.per) for (let i = 0; i < HOURS; i++) per[id].heat[i] += df.per[id][i];
+        Object.assign(df.rep, { annual_kwh: Math.round(sumA(df.heat)), peak_kw: Math.round(peakA(df.heat) * 10) / 10,
+          heating_el_kwh: Math.round(sumA(df.hel)),
+          note: `Lämpö = lämmityssähkö ${mwh(sumA(df.hel))} MWh × ${df.cop.toFixed(1)}, erotettu mittarin ${g.name || g.id} kulutuksesta. Muoto tulee mallista.` });
+        capacityCheck(df.rep, df.heat, (df.g.data || {}).capacity_kw);
       }
     }
     const cal = calendar(year), sum = (a) => a.reduce((s, v) => s + v, 0), mx = (a) => a.reduce((s, v) => Math.max(s, v), 0);
@@ -3141,7 +3497,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         electricity: monthlySum(el, year).map(Math.round), heat: monthlySum(heat, year).map(Math.round),
         temperature: [...Array(12)].map((_, m) => { let s = 0, n = 0; for (let i = 0; i < HOURS; i++) if (cal.month[i] === m + 1) { s += t[i]; n++; } return r1(s / n); }),
       },
-      totals: { electricity_kwh: Math.round(sum(el)), heat_kwh: Math.round(sum(heat)), electricity_peak_kw: r1(mx(el)), heat_peak_kw: r1(mx(heat)) },
+      totals: { electricity_kwh: Math.round(sum(el)), heat_kwh: Math.round(sum(heat)), electricity_peak_kw: r1(mx(el)), heat_peak_kw: r1(mx(heat)), heating_el_kwh: Math.round(sum(hel)) },
       buildings: blds.map((b) => ({ id: b.id, electricity_kwh: Math.round(sum(per[b.id].el)), heat_kwh: Math.round(sum(per[b.id].heat)), heat_peak_kw: r1(mx(per[b.id].heat)) })),
       calibration: reports,
     };
@@ -3290,13 +3646,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     throw new Error("Tuntematon toiminto " + u.pathname);
   }
 
-  function toast(msg, isError) {
-    const t = $("#toast");
-    t.textContent = msg;
+  // Messages stack in the lower left corner, so a second message does not hide the first and none covers the results.
+  function toast(msg, isError, ms) {
+    const host = $("#toast");
+    const t = document.createElement("div");
     t.className = "toast" + (isError ? " error" : "");
-    t.hidden = false;
-    clearTimeout(toast._t);
-    toast._t = setTimeout(() => { t.hidden = true; }, isError ? 7000 : 3200);
+    t.innerHTML = `<span>${esc(msg)}</span><button type="button" class="toast-x" aria-label="Sulje ilmoitus">×</button>`;
+    const close = () => t.remove();
+    t.querySelector("button").onclick = close;
+    host.appendChild(t);
+    while (host.children.length > 4) host.firstChild.remove();
+    setTimeout(close, ms || (isError ? 10000 : 4000));
   }
 
   async function busy(btn, label, fn) {
@@ -3371,11 +3731,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     } else if (mode === "add-building") {
       setMode("none");
       const id = "k" + Date.now().toString(36);
-      state.buildings.push(decorate({
+      const nb = decorate({
         mtk_id: id, manual: true, class_label: "Käsin lisätty", kohdeluokka: 0, default_use: "muu", floors: 1,
         footprint_m2: null, is_point: true, on_property: true,
         geometry: { type: "Point", coordinates: [lng, lat] },
-      }, true));
+      }, true);
+      nb.name = `Rakennus ${state.buildings.filter((b) => b.manual).length + 1}`;
+      nb.area_default = true;   // 100 m² until the user gives the real area
+      state.buildings.push(nb);
       if (!state.area) setArea({ kind: "manual", display: "Käsin lisätyt", geometry: null, center: [lat, lng] });
       renderAll();
       focusBuilding(id);
@@ -3530,10 +3893,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
           <label class="full">Nimi<input data-f="name" value="${esc(b.name)}"></label>
           <label>Käyttö<select data-f="use">${useOptions(b.use)}</select></label>
           <label>Mukana<select data-f="scope">${[["both", "lämpö ja sähkö"], ["heat", "vain lämpö"], ["el", "vain sähkö"]].map(([k, l]) => `<option value="${k}"${(b.scope || "both") === k ? " selected" : ""}>${l}</option>`).join("")}</select></label>
-          <label>${(b.scope || "both") === "el" ? "Ala, m²" : "Lämmitetty ala, m²"}<input data-f="heated_m2" type="number" min="0" step="10" value="${esc(b.heated_m2)}"></label>
-          ${(b.scope || "both") !== "el" ? `<label>Lämmityspiiri<select data-f="circuit">${groupOptions(state.circuits, b.circuit)}</select></label>` : ""}
+          <label>${(b.scope || "both") === "el" ? "Ala, m²" : "Lämmitetty ala, m²"}<input data-f="heated_m2" type="number" min="1" step="10" required value="${esc(b.heated_m2)}"></label>
+          ${(b.scope || "both") !== "el" ? `<label>Lämmitysjärjestelmä<select data-f="circuit">${groupOptions(state.circuits, b.circuit)}</select></label>` : ""}
           ${(b.scope || "both") !== "heat" ? `<label>Sähkömittari<select data-f="meter">${groupOptions(state.meters, b.meter)}</select></label>` : ""}
-          ${(b.scope || "both") !== "el" ? `<label>Tunnettu lämpö, MWh/v<input data-f="known_heat_mwh" type="number" min="0" step="any" placeholder="valinnainen" value="${esc(b.known_heat_mwh ?? "")}"></label>` : ""}
+          ${(b.scope || "both") !== "el" ? `<label title="Esim. rakennuksen oma kattila tai lämpömäärämittari (alamittari).">Tunnettu lämpö, MWh/v<input data-f="known_heat_mwh" type="number" min="0" step="any" placeholder="valinnainen" value="${esc(b.known_heat_mwh ?? "")}"></label>` : ""}
           ${(b.scope || "both") !== "heat" ? `<label>Tunnettu sähkö, MWh/v<input data-f="known_el_mwh" type="number" min="0" step="any" placeholder="valinnainen" value="${esc(b.known_el_mwh ?? "")}"></label>` : ""}
           ${b.known_heat_mwh || b.known_el_mwh ? `<p class="note">Tunnettu kulutus kohdistetaan tälle rakennukselle (esim. oma kattila tai alamittari). Mittarin tai piirin muu kulutus jaetaan muille rakennuksille.</p>` : ""}
           ${b.use === "broileri" ? `
@@ -3543,6 +3906,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
           <label>Esilämmitys, vrk<input data-c="preheat_days" type="number" min="0" max="5" value="${b.cycle.preheat_days}"></label>
           <p class="note">Lämmitys painottuu erän alkuun: asetuslämpö laskee 30 °C:sta 20 °C:een 27 vuorokaudessa (Aviagen 2025) ja lintujen lämmöntuotto kasvaa erän aikana. Tyhjänä halli pidetään +8 °C:ssa. Jos hallit ovat eri vaiheessa, anna niille eri sisäänottopäivä; muuten huiput osuvat päällekkäin.</p>` : ""}
           ${b.is_point && !b.manual ? `<p class="note">MML:ssä tästä rakennuksesta on vain piste. Anna lämmitetty ala itse.</p>` : ""}
+          ${b.area_default ? `<p class="note warnline">Ala on oletus 100 m². Anna rakennuksen todellinen lämmitetty ala.</p>` : ""}
           ${b.manual ? `<p class="note"><button type="button" class="btn small" data-remove="1">Poista rakennus</button></p>` : ""}
         </div>` : "";
       return `<div class="bitem${b.heated ? " on" : ""}${b.on_property ? "" : " neighbour"}" data-id="${esc(b.id)}">
@@ -3564,7 +3928,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       return;
     }
     if (e.target.closest(".bhead")) {
-      toggleHeated(id, e.target.type === "checkbox" ? e.target.checked : undefined);
+      if (e.target.type === "checkbox") toggleHeated(id, e.target.checked);
       const lyr = shapes[id];
       if (lyr) {
         if (lyr.getBounds) map.fitBounds(lyr.getBounds(), { maxZoom: Math.max(map.getZoom(), 16), padding: [80, 80] });
@@ -3579,37 +3943,75 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     if (!b) return;
     const f = e.target.dataset.f, c = e.target.dataset.c;
     const numeric = { heated_m2: true, known_heat_mwh: true, known_el_mwh: true };
-    if (f) b[f] = numeric[f] ? (e.target.value === "" ? (f === "heated_m2" ? 0 : null) : Number(e.target.value)) : e.target.value;
+    if (f === "heated_m2") {
+      const v = Number(e.target.value);
+      if (e.target.value === "" || !Number.isFinite(v) || v <= 0) {
+        toast("Alan pitää olla suurempi kuin 0 m². Poista rakennus laskennasta valintaruudusta, jos se ei kuulu mukaan.", true);
+        e.target.value = b.heated_m2;
+        return;
+      }
+      b.area_default = false;
+    }
+    if ((f === "known_heat_mwh" || f === "known_el_mwh") && e.target.value !== "" && Number(e.target.value) < 0) {
+      toast("Tunnettu kulutus ei voi olla negatiivinen.", true);
+      e.target.value = b[f] ?? "";
+      return;
+    }
+    if (f) b[f] = numeric[f] ? (e.target.value === "" ? null : Number(e.target.value)) : e.target.value;
     if (c === "first_placement") b.cycle.first_placement_doy = dateToDoy(e.target.value);
     else if (c) b.cycle[c] = Number(e.target.value) || 0;
     b.suggested = false;
     state.result = null;
-    if (["use", "name", "scope", "known_heat_mwh", "known_el_mwh"].includes(f)) renderAll(); else { saveDraft(); renderChecklist(); renderGroups(); drawBuildings(); }
+    if (["use", "name", "scope", "known_heat_mwh", "known_el_mwh", "heated_m2"].includes(f)) renderAll(); else if (rendering) renderPending = true; else { saveDraft(); renderChecklist(); renderGroups(); drawBuildings(); renderResults(); }
   });
 
   // ------------------------------------------------------------------ energy data
   const KINDS = [["none", "Ei tietoa"], ["annual", "Vuosi"], ["monthly", "Kuukaudet"], ["hourly", "Tuntitiedosto"]];
+
+  // Heating system of a circuit decides which units make sense; electric heating runs through an electricity meter.
+  const SYSTEM_UNITS = {
+    fuel: ["i-m3", "MWh_pa", "t_pelletti", "l_oljy", "kWh", "MWh"],
+    district: ["MWh", "kWh"],
+    electric: ["MWh_el", "kWh_el", "MWh", "kWh"],
+    heatpump: ["MWh_el", "kWh_el", "MWh", "kWh"],
+  };
+  const isElectric = (d) => d.system === "electric" || d.system === "heatpump";
+  // an electric circuit without its own data gets its heat from the meter's data
+  const fromMeter = (g) => isElectric(g.data) && g.data.kind === "none" && !!elMeterOf(g) && hasGroupData(elMeterOf(g));
+  function elMeterOf(g) { return state.meters.find((m) => m.id === g.data.el_meter) || state.meters[0]; }
+  function hasGroupData(g) { return g.data.kind !== "none" && !(g.data.kind === "hourly" && !g.data.values); }
 
   function groupCard(g, type) {
     const list = type === "heat" ? state.circuits : state.meters;
     const inScope = (b) => (type === "heat" ? (b.scope || "both") !== "el" : (b.scope || "both") !== "heat");
     const members = state.buildings.filter((b) => b.heated && inScope(b) && (type === "heat" ? b.circuit : b.meter) === g.id);
     const d = g.data;
-    const units = type === "heat"
-      ? Object.entries(META.heat_units).map(([k, v]) => `<option value="${k}"${k === d.unit ? " selected" : ""}>${esc(v)}</option>`).join("")
-      : ["kWh", "MWh"].map((u) => `<option${u === d.unit ? " selected" : ""}>${u}</option>`).join("");
-    const isFuel = type === "heat" && !["kWh", "MWh"].includes(d.unit);
+    const sys = d.system || "fuel";
+    const unitKeys = type === "heat" ? SYSTEM_UNITS[sys] || SYSTEM_UNITS.fuel : ["kWh", "MWh"];
+    if (!unitKeys.includes(d.unit)) d.unit = unitKeys[0];
+    const units = unitKeys.map((k) => `<option value="${k}"${k === d.unit ? " selected" : ""}>${esc(type === "heat" ? META.heat_units[k] || k : k)}</option>`).join("");
+    const unitSelect = `<select data-d="unit" aria-label="Yksikkö">${units}</select>`;
+    const isFuel = type === "heat" && sys === "fuel" && !["kWh", "MWh"].includes(d.unit);
+    const sysRow = type === "heat" ? `<div class="row wrap">
+        <label class="inline">Lämmitystapa<select data-d="system">${Object.entries(META.heating_systems || { fuel: "Kattila" }).map(([k, v]) => `<option value="${k}"${k === sys ? " selected" : ""}>${esc(v)}</option>`).join("")}</select></label>
+        ${isElectric(d) ? `<label class="inline">Sähkö mittarista<select data-d="el_meter">${state.meters.map((m) => `<option value="${esc(m.id)}"${m.id === elMeterOf(g)?.id ? " selected" : ""}>${esc(m.name)}</option>`).join("")}</select></label>` : ""}
+        ${sys === "heatpump" ? `<label class="inline" title="Lämpöpumpun vuosihyötysuhde: lämpöä kWh sähkön kWh:ta kohden. Maalämpö tyypillisesti 3–3,5, ilma-vesi 2,5–3.">SCOP<input data-d="cop" type="number" min="1" max="6" step="0.1" value="${esc(d.cop ?? 3)}" style="width:72px"></label>` : ""}
+      </div>` : "";
     let input = "";
     if (d.kind === "annual") {
-      input = `<div class="row wrap"><input data-d="value" type="number" min="0" step="any" placeholder="Vuosikulutus" value="${esc(d.value ?? "")}" style="flex:1">
-        <select data-d="unit">${units}</select></div>`;
+      input = `<div class="row wrap"><input data-d="value" type="number" min="0" step="any" placeholder="Vuosikulutus" aria-label="Vuosikulutus" value="${esc(d.value ?? "")}" style="flex:1">
+        ${unitSelect}</div>`;
     } else if (d.kind === "monthly") {
       const m = d.months || [];
-      input = `<div class="row wrap"><span class="hint">Yksikkö</span><select data-d="unit">${units}</select></div>
+      input = `<div class="row wrap"><span class="hint">Yksikkö</span>${unitSelect}</div>
         <div class="months">${MONTHS.map((n, i) => `<label>${n}<input data-m="${i}" type="number" min="0" step="any" value="${esc(m[i] ?? "")}"></label>`).join("")}</div>`;
     } else if (d.kind === "hourly") {
       const s = d.parsed;
-      input = `<label class="btn small file">${s ? "Vaihda tiedosto" : "Valitse tiedosto (Datahub tai mittarin CSV)"}<input type="file" data-file="1" accept=".csv,.txt,text/csv"></label>
+      input = `${type === "heat" && isElectric(d) ? `<div class="row wrap"><span class="hint">Tiedoston sisältö</span><select data-d="unit" aria-label="Tiedoston sisältö">
+          <option value="kWh_el"${d.unit === "kWh_el" || d.unit === "MWh_el" ? " selected" : ""}>lämmityssähkö (alamittari)</option>
+          <option value="kWh"${d.unit === "kWh" || d.unit === "MWh" ? " selected" : ""}>lämpö (lämpömittari)</option></select></div>` : ""}
+        ${!s ? `<p class="hint warnline">Tiedosto puuttuu${d.values === null ? " (vuoden vaihto poisti edellisen)" : ""}: valitse vuoden ${state.year} tiedosto.</p>` : ""}
+        <label class="btn small file">${s ? "Vaihda tiedosto" : "Valitse tiedosto (Datahub tai mittarin CSV)"}<input type="file" data-file="1" accept=".csv,.txt,text/csv"></label>
         ${s ? `<div class="summary">${esc(s.file)}: <span class="nums">${fmt(s.hours_complete)}</span> / 8 760 tuntia,
           resoluutio ${s.resolution_min} min, yhteensä <span class="nums">${fmt(s.total_kwh / 1000, 1)}</span> MWh.
           ${s.hours_missing ? `Puuttuvat ${fmt(s.hours_missing)} tuntia täydennetään mallilla.` : ""}
@@ -3619,17 +4021,28 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         <label class="inline">Kattilan hyötysuhde<input data-d="efficiency" type="number" min="0.3" max="1.1" step="0.01" value="${esc(d.efficiency ?? 0.85)}" style="width:80px"></label>
         ${d.unit === "i-m3" ? `<label class="inline">Hake, MWh/i-m³<input data-d="chip_density" type="number" min="0.5" max="1.2" step="0.05" value="${esc(d.chip_density ?? 0.8)}" style="width:80px"></label>` : ""}
       </div>` : "";
+    const capLabel = sys === "heatpump" ? "Lämpöpumpun teho" : sys === "district" ? "Liittymäteho" : sys === "electric" ? "Lämmitysteho" : "Kattilan teho";
     const opts = type === "heat" ? `<div class="row wrap">
         ${d.kind === "annual" ? `<label class="inline" title="Käyttövesi, pesut ja muu säästä riippumaton lämpö. Tyhjä = mallin oletus.">Säästä riippumaton osuus, %<input data-d="base_share_pct" type="number" min="0" max="100" step="1" placeholder="oletus" value="${esc(d.base_share_pct ?? "")}" style="width:80px"></label>` : ""}
-        <label class="inline" title="Kattilan nimellisteho (laskurin D14). Huipputehoa verrataan siihen.">Kattilan teho, kW<input data-d="capacity_kw" type="number" min="0" step="10" placeholder="valinnainen" value="${esc(d.capacity_kw ?? "")}" style="width:90px"></label>
+        <label class="inline" title="Nimellisteho (laskurin D14). Huipputehoa verrataan siihen.">${capLabel}, kW<input data-d="capacity_kw" type="number" min="0" step="10" placeholder="valinnainen" value="${esc(d.capacity_kw ?? "")}" style="width:90px"></label>
       </div>` : "";
+    let noneHint = "";
+    if (d.kind === "none") {
+      noneHint = type === "heat" && fromMeter(g)
+        ? `<p class="hint">Lämmityssähköä ei mitata erikseen: se erotetaan mittarin <em>${esc(elMeterOf(g).name)}</em> kulutuksesta sovitteella.</p>`
+        : `<p class="hint">Ilman kulutustietoa tulos on mallin oletus eikä kuvaa tilaa.${type === "heat" && isElectric(d) ? " Anna mittarille kulutus, niin lämmityssähkö erotetaan siitä." : ""}</p>`;
+    }
+    const elHint = type === "heat" && isElectric(d) && d.kind !== "none"
+      ? `<p class="hint">Lämmityssähkö vähennetään mittarin <em>${esc(elMeterOf(g)?.name || "")}</em> kulutuksesta, jotta sitä ei lasketa kahteen kertaan.</p>` : "";
+    const elsewhere = type === "el" ? state.circuits.filter((c) => isElectric(c.data) && elMeterOf(c)?.id === g.id) : [];
+    const meterHint = elsewhere.length ? `<p class="hint">Mittarin kautta kulkee myös lämmityssähkö: ${elsewhere.map((c) => esc(c.name)).join(", ")}. Anna mittarin koko kulutus; lämmityksen osuus erotetaan.</p>` : "";
     return `<div class="gcard" data-type="${type}" data-id="${esc(g.id)}">
-      <header><span class="gtype ${type}"></span><input data-g="name" value="${esc(g.name)}" aria-label="Nimi">
+      <header><span class="gtype ${type}"></span><input data-g="name" value="${esc(g.name)}" aria-label="${type === "heat" ? "Lämmitysjärjestelmän nimi" : "Sähkömittarin nimi"}">
         ${list.length > 1 ? `<button type="button" class="iconbtn" data-del="1" title="Poista" aria-label="Poista">×</button>` : ""}</header>
       <div class="gmembers">${type === "heat" ? "Lämpö" : "Sähkö"}: ${members.length ? members.map((b) => esc(b.name)).join(", ") : "ei rakennuksia"}</div>
-      <div class="seg" role="group">${KINDS.map(([k, l]) => `<button type="button" data-kind="${k}" class="${d.kind === k ? "on" : ""}">${l}</button>`).join("")}</div>
-      ${input}${eff}${opts}
-      ${d.kind === "none" ? `<p class="hint">Ilman kulutustietoa tulos on mallin oletus eikä kuvaa tilaa.</p>` : ""}
+      ${sysRow}
+      <div class="seg" role="group" aria-label="Kulutustiedon tyyppi">${KINDS.map(([k, l]) => `<button type="button" data-kind="${k}" class="${d.kind === k ? "on" : ""}" aria-pressed="${d.kind === k}">${l}</button>`).join("")}</div>
+      ${input}${eff}${opts}${noneHint}${elHint}${meterHint}
     </div>`;
   }
 
@@ -3676,12 +4089,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       });
     }
     state.result = null;
-    if (t.dataset.g || t.dataset.d === "unit" || t.dataset.file) renderAll(); else { saveDraft(); renderChecklist(); }
+    if (t.dataset.d === "system") { g.data.unit = (SYSTEM_UNITS[t.value] || SYSTEM_UNITS.fuel)[0]; if (t.value === "heatpump" && g.data.cop == null) g.data.cop = 3; }
+    if (t.dataset.g || ["unit", "system", "el_meter", "cop"].includes(t.dataset.d) || t.dataset.file) renderAll(); else if (rendering) renderPending = true; else { saveDraft(); renderChecklist(); renderResults(); }
   });
 
   $("#addCircuit").onclick = () => {
     const id = "c" + (Date.now() % 1e6);
-    state.circuits.push({ id, name: `Lämmityspiiri ${state.circuits.length + 1}`, data: { kind: "none", unit: "i-m3", efficiency: 0.85 } });
+    state.circuits.push({ id, name: `Lämmitysjärjestelmä ${state.circuits.length + 1}`, data: { kind: "none", system: "fuel", unit: "i-m3", efficiency: 0.85 } });
     renderAll();
   };
   $("#addMeter").onclick = () => {
@@ -3762,6 +4176,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     renderWeather();
     renderChecklist();
     saveDraft();
+    renderResults();
   }
 
   function renderWeather() {
@@ -3833,11 +4248,22 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
   function checks() {
     const heated = state.buildings.filter((b) => b.heated);
-    const noData = [...state.circuits, ...state.meters].filter((g) => g.data.kind === "none" && state.buildings.some((b) => b.heated && (b.circuit === g.id || b.meter === g.id)));
+    const used = (g, key, scopes) => heated.some((b) => b[key] === g.id && scopes.includes(b.scope || "both"));
+    const usedGroups = [...state.circuits.filter((g) => used(g, "circuit", ["both", "heat"])), ...state.meters.filter((g) => used(g, "meter", ["both", "el"]))];
+    const noData = usedGroups.filter((g) => !hasGroupData(g) && !(state.circuits.includes(g) && fromMeter(g)));
+    const defaults = heated.filter((b) => b.area_default);
+    const dataCheck = !heated.length
+      ? { ok: false, text: "Kulutustiedot: valitse ensin rakennukset" }
+      : noData.length
+        ? { ok: false, warn: true, text: `Kulutustieto puuttuu: ${noData.map((g) => g.name).join(", ")} (tulos on mallin oletus)` }
+        : { ok: true, text: "Kulutustiedot annettu" };
     return [
       { ok: !!state.area, text: state.area ? `Alue: ${state.area.display}` : "Valitse tila" },
-      { ok: heated.length > 0, text: heated.length ? `${heated.length} rakennusta mukana, ${fmt(heated.filter((b) => (b.scope || "both") !== "el").reduce((a, b) => a + (b.heated_m2 || 0), 0))} m² lämmitettyä` : "Valitse rakennukset" },
-      { ok: noData.length === 0, warn: noData.length > 0, text: noData.length ? `Kulutustieto puuttuu: ${noData.map((g) => g.name).join(", ")} (tulos on mallin oletus)` : "Kulutustiedot annettu" },
+      { ok: heated.length > 0 && !defaults.length, warn: defaults.length > 0,
+        text: !heated.length ? "Valitse rakennukset"
+          : `${heated.length} rakennusta mukana, ${fmt(heated.filter((b) => (b.scope || "both") !== "el").reduce((a, b) => a + (b.heated_m2 || 0), 0))} m² lämmitettyä`
+            + (defaults.length ? `; oletusala 100 m²: ${defaults.map((b) => b.name).join(", ")}` : "") },
+      dataCheck,
       { ok: !!state.weather && !state.weather.missing, warn: !!state.weather && !!state.weather.missing,
         text: !state.weather ? "Valitse säätiedot" : state.weather.missing ? `Säätiedoista puuttuu ${fmt(state.weather.missing)} tuntia (kesken oleva vuosi?)` : `Sää: ${state.weather.label}` },
       { ok: !!state.prices[state.year], text: state.prices[state.year] ? `Pörssihinnat ${state.year}: ${fmt(state.prices[state.year].hours)} tuntia` : `Pörssihinnat ${state.year} (valinnainen, CSV:n sarake H)` },
@@ -3852,7 +4278,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     $("#step3").classList.toggle("done", c[2].ok);
     $("#step4").classList.toggle("done", c[3].ok);
     $("#stepPrice").classList.toggle("done", c[4].ok);
-    $("#runModel").disabled = !(c[1].ok && c[3].ok);
+    $("#runModel").disabled = !(state.buildings.some((b) => b.heated) && c[3].ok);
   }
 
   $("#runModel").onclick = (e) => busy(e.currentTarget, "Lasketaan…", async () => {
@@ -3865,6 +4291,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   function cvPill(rep) {
     if (rep.kind === "none") return `<span class="pill none">mallin oletus</span>`;
     if (rep.kind === "annual") return `<span class="pill none">vuosisumma</span>`;
+    if (rep.kind === "from_meter") return `<span class="pill none">erotettu mittarista</span>`;
     if (rep.kind === "hourly" && !rep.hours_filled) return `<span class="pill ok">mitattu, ${fmt(rep.hours_measured)} h</span>`;
     if (rep.cv_rmse == null) return `<span class="pill none">–</span>`;
     const good = rep.cv_rmse <= rep.limit;
@@ -3880,7 +4307,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     const y = (v) => padT + (H - padT - padB) * (1 - v / top);
     let g = "";
     for (let v = 0; v <= top + 1e-9; v += step) {
-      g += `<line class="grid" x1="${padL}" x2="${W - 4}" y1="${y(v)}" y2="${y(v)}"/><text x="${padL - 5}" y="${y(v) + 3.5}" text-anchor="end">${fmt(v)}</text>`;
+      g += `<line class="grid" x1="${padL}" x2="${W - 4}" y1="${y(v)}" y2="${y(v)}"/><text x="${padL - 5}" y="${y(v) + 3.5}" text-anchor="end">${fmt(v, step < 1 ? 1 : 0)}</text>`;
     }
     const bars = values.map((v, i) => {
       const x = padL + i * bw + 2, h = Math.max(0, y(0) - y(v));
@@ -3893,6 +4320,35 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     }).join("");
     return `<div class="chart"><h4>${esc(title)}</h4><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(title)}">${g}${bars}</svg></div>`;
   }
+  // Load duration curve: the year's hours sorted from the highest load down. Boilers, heat pumps and CHP are sized from it.
+  function durationChart(series, colorVar, title, capKw, capLabel) {
+    const W = 340, H = 170, padL = 40, padB = 22, padT = 10, padR = 6;
+    const sorted = Float64Array.from(series).sort().reverse();
+    const max = Math.max(1, sorted[0], capKw || 0);
+    const step = niceStep(max / 3), top = Math.ceil(max / step) * step;
+    const x = (h) => padL + (W - padL - padR) * h / 8760;
+    const y = (v) => padT + (H - padT - padB) * (1 - v / top);
+    let g = "";
+    for (let v = 0; v <= top + 1e-9; v += step) g += `<line class="grid" x1="${padL}" x2="${W - padR}" y1="${y(v)}" y2="${y(v)}"/><text x="${padL - 5}" y="${y(v) + 3.5}" text-anchor="end">${fmt(v, step < 1 ? 1 : 0)}</text>`;
+    for (let h = 0; h <= 8760; h += 2000) g += `<text x="${x(h)}" y="${H - 6}" text-anchor="middle">${fmt(h)}</text>`;
+    const idx = [0];
+    for (let k = 1; k <= 360; k++) idx.push(Math.min(8759, Math.round(k * 8759 / 360)));
+    const pts = idx.map((h) => `${x(h).toFixed(1)},${y(sorted[h]).toFixed(1)}`).join(" ");
+    const area = `M${x(0)},${y(0)} L${pts.split(" ").join(" L")} L${x(8759)},${y(0)} Z`;
+    let cap = "", capNote = "";
+    if (capKw > 0) {
+      const over = sorted.filter((v) => v > capKw).length;
+      cap = `<line class="cap" x1="${padL}" x2="${W - padR}" y1="${y(capKw)}" y2="${y(capKw)}"/><text x="${W - padR}" y="${y(capKw) - 4}" text-anchor="end">${esc(capLabel)} ${fmt(capKw)} kW</text>`;
+      capNote = `${capLabel} ${fmt(capKw)} kW${over ? `: ylittyy ${fmt(over)} tuntina` : ": riittää kaikkina tunteina"}.`;
+    }
+    const at = (kw) => sorted.filter((v) => v > kw).length;
+    const p = sorted[0];
+    const desc = `Huippu ${fmt(p, 1)} kW. Yli puolet huipusta ${fmt(at(p / 2))} h, yli neljännes ${fmt(at(p / 4))} h.`;
+    const tips = [0, 100, 500, 1000, 2000, 4000, 6000, 8000].map((h) => `<circle class="dur-pt" cx="${x(h)}" cy="${y(sorted[Math.min(h, 8759)])}" r="5" data-tip="${fmt(h)} h: ${fmt(sorted[Math.min(h, 8759)], 1)} kW"/>`).join("");
+    return `<div class="chart"><h4>${esc(title)}</h4><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(title + ". " + desc)}">${g}
+      <path d="${area}" fill="var(${colorVar})" fill-opacity="0.18"/><polyline points="${pts}" fill="none" stroke="var(${colorVar})" stroke-width="2"/>${cap}${tips}</svg>
+      <p class="chart-note">${esc(desc)}${capNote ? " " + esc(capNote) : ""} Vaaka-akseli: tunnit vuodessa, suurimmasta tehosta alkaen.</p></div>`;
+  }
   function niceStep(x) {
     const p = Math.pow(10, Math.floor(Math.log10(x || 1)));
     const n = x / p;
@@ -3902,15 +4358,21 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   // A change to buildings, consumption or weather makes the result stale. The last result stays on screen, dimmed and
   // without exports, until the profile is recalculated: the panel does not collapse, so the map does not jump under the cursor.
   let lastResult = null;
+  let renderedAs = { result: null, stale: false };
   function renderResults() {
     const host = $("#results");
     if (state.result) lastResult = state.result;
     const r = state.result || lastResult;
     const stale = !state.result;
     if (!r) {
+      renderedAs = { result: null, stale: false };
       if (!host.hidden) { host.hidden = true; host.innerHTML = ""; refreshMap(); }
       return;
     }
+    // Already showing this result as stale: leave the DOM alone. Re-rendering here would replace the
+    // "Laske uudelleen" button between mousedown and click when a field's change event fires on blur.
+    if (stale && renderedAs.result === r && renderedAs.stale && !host.hidden) return;
+    renderedAs = { result: r, stale };
     const wasHidden = host.hidden;
     host.hidden = false;
     host.classList.toggle("stale", stale);
@@ -3920,8 +4382,19 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       .map((c) => `<tr><td>${esc(c.name)}<br><small style="color:var(--ink-3)">${c.type}</small></td>
         <td class="n">${fmt(c.annual_kwh / 1000, 1)}</td><td class="n">${fmt(c.peak_kw, 1)}${c.capacity_kw ? `<br><small style="color:${c.hours_over_capacity ? "var(--warn)" : "var(--ink-3)"}">/ ${fmt(c.capacity_kw)}</small>` : ""}</td>
         <td>${cvPill(c)}${c.warning ? `<br><small class="warnline">${esc(c.warning)}</small>` : ""}${c.note ? `<br><small style="color:var(--ink-3)">${esc(c.note)}</small>` : ""}</td></tr>`).join("");
-    const bRows = r.buildings.map((b) => `<tr><td>${esc(names[b.id] || b.id)}</td><td class="n">${fmt(b.electricity_kwh / 1000, 1)}</td>
-      <td class="n">${fmt(b.heat_kwh / 1000, 1)}</td><td class="n">${fmt(b.heat_peak_kw, 1)}</td></tr>`).join("");
+    // specific consumption kWh/m² shows whether the calibration split the total plausibly between buildings
+    const bById = Object.fromEntries(state.buildings.map((b) => [b.id, b]));
+    const bRows = r.buildings.map((b) => {
+      const sb = bById[b.id], m2 = sb && sb.heated_m2 > 0 ? sb.heated_m2 : null;
+      const spec = m2 && (sb.scope || "both") !== "el" ? b.heat_kwh / m2 : null;
+      const odd = spec != null && (spec < 20 || spec > 800);
+      return `<tr><td>${esc(names[b.id] || b.id)}</td><td class="n">${fmt(b.electricity_kwh / 1000, 1)}</td>
+      <td class="n">${fmt(b.heat_kwh / 1000, 1)}</td><td class="n${odd ? " warnline" : ""}"${odd ? ' title="Epätavallinen arvo: tarkista ala, käyttötyyppi tai tunnettu kulutus."' : ""}>${spec == null ? "–" : fmt(spec)}</td><td class="n">${fmt(b.heat_peak_kw, 1)}</td></tr>`;
+    }).join("");
+    const helKwh = t.heating_el_kwh || 0;
+    const capSum = r.calibration.circuits.reduce((a, c) => a + (+c.capacity_kw || 0), 0);
+    const capSystems = new Set(r.calibration.circuits.filter((c) => +c.capacity_kw > 0).map((c) => c.system || "fuel"));
+    const capLabel = capSystems.size === 1 ? ({ fuel: "Kattilan teho", heatpump: "Lämpöpumpun teho", district: "Liittymäteho", electric: "Lämmitysteho" })[[...capSystems][0]] : "Lämmitysteho yhteensä";
     host.innerHTML = `
       <div class="res-head">
         <h3>Tuntiprofiili ${r.year}${state.area?.display ? `, ${esc(state.area.display)}` : ""}</h3>
@@ -3933,18 +4406,23 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       </div>
       ${stale ? `<p class="stale-note" role="status">Valinnat ovat muuttuneet. Luvut ovat edellisestä laskennasta${$("#runModel").disabled ? "; valitse ensin rakennukset ja säätiedot" : ""}.</p>` : ""}
       <div class="kpis">
-        <div class="kpi el"><b>${fmt(t.electricity_kwh / 1000, 1)}</b><span>Sähkö, MWh/v</span></div>
+        <div class="kpi el"><b>${fmt(t.electricity_kwh / 1000, 1)}</b><span>${helKwh ? "Muu sähkö" : "Sähkö"}, MWh/v</span></div>
         <div class="kpi el"><b>${fmt(t.electricity_peak_kw, 1)}</b><span>Sähkön huipputeho, kW</span></div>
         <div class="kpi heat"><b>${fmt(t.heat_kwh / 1000, 1)}</b><span>Lämmöntarve, MWh/v</span></div>
         <div class="kpi heat"><b>${fmt(t.heat_peak_kw, 1)}</b><span>Lämmön huipputeho, kW</span></div>
       </div>
+      ${helKwh ? `<p class="tcap">Lämmityssähkö nykyisin ${fmt(helKwh / 1000, 1)} MWh/v sisältyy lämmöntarpeeseen. Sitä ei ole sähkösarakkeessa, koska laskuri tuottaa lämmön omista lähteistään.</p>` : ""}
       <div class="charts">
-        ${barChart(r.monthly.electricity.map((v) => v / 1000), "--el", "MWh", "Sähkö kuukausittain, MWh")}
+        ${barChart(r.monthly.electricity.map((v) => v / 1000), "--el", "MWh", helKwh ? "Muu sähkö kuukausittain, MWh" : "Sähkö kuukausittain, MWh")}
         ${barChart(r.monthly.heat.map((v) => v / 1000), "--heat", "MWh", "Lämmöntarve kuukausittain, MWh")}
       </div>
+      <div class="charts">
+        ${durationChart(r.heat, "--heat", "Lämpötehon pysyvyyskäyrä, kW", capSum, capLabel)}
+        ${durationChart(r.electricity, "--el", helKwh ? "Muun sähkön pysyvyyskäyrä, kW" : "Sähkötehon pysyvyyskäyrä, kW", 0, "")}
+      </div>
       <div class="tables">
-        <div class="tbl-wrap"><table><thead><tr><th>Mittari / piiri</th><th class="n">MWh/v</th><th class="n">Huippu kW</th><th>Kalibrointi</th></tr></thead><tbody>${grpRows}</tbody></table></div>
-        <div class="tbl-wrap"><table><caption class="tcap">Rakennuskohtaiset luvut ovat mallin jakamia arvioita, paitsi kun rakennukselle on annettu tunnettu kulutus.</caption><thead><tr><th>Rakennus</th><th class="n">Sähkö MWh</th><th class="n">Lämpö MWh</th><th class="n">Huippu kW</th></tr></thead><tbody>${bRows}</tbody></table></div>
+        <div class="tbl-wrap"><table><thead><tr><th>Mittari / lämmitys</th><th class="n">MWh/v</th><th class="n">Huippu kW</th><th>Kalibrointi</th></tr></thead><tbody>${grpRows}</tbody></table></div>
+        <div class="tbl-wrap"><table><caption class="tcap">Rakennuskohtaiset luvut ovat mallin jakamia arvioita, paitsi kun rakennukselle on annettu tunnettu kulutus.</caption><thead><tr><th>Rakennus</th><th class="n">Sähkö MWh</th><th class="n">Lämpö MWh</th><th class="n">Lämpö kWh/m²</th><th class="n">Huippu kW</th></tr></thead><tbody>${bRows}</tbody></table></div>
       </div>
       <div class="howto"><strong>Laskuriin vienti</strong>
         <ol>
@@ -3987,6 +4465,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([text], { type }));
     a.download = name;
+    a.textContent = name;
+    a.hidden = true;
     document.body.appendChild(a);
     a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
@@ -4028,6 +4508,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     renderAll();
     renderWeather();
   }
+  $("#newProject").onclick = () => {
+    const has = state.area || state.buildings.length;
+    if (has && !window.confirm("Aloitetaanko uusi projekti? Nykyinen työ poistetaan tästä selaimesta. Tallenna projekti ensin, jos tarvitset sitä.")) return;
+    try { localStorage.removeItem(DRAFT_KEY); } catch (_) { /* storage blocked */ }
+    loadState({});
+    $("#areaChip").hidden = true;
+    $("#kt").value = "";
+    $("#stationList").innerHTML = `<p class="empty">Asemat haetaan, kun tila on valittu.</p>`;
+    map.setView([62.79, 22.84], 10);
+    toast("Uusi projekti aloitettu.");
+  };
   $("#saveProject").onclick = () => {
     const name = state.area?.display ? `rakennushaku_${state.area.display}_${state.year}.json` : `rakennushaku_${state.year}.json`;
     download(name, JSON.stringify(serial(), null, 1), "application/json");
@@ -4072,8 +4563,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     state.weather = null;
     state.weatherChoice = null;
     state.result = null;
-    [...state.circuits, ...state.meters].forEach((g) => { if (g.data.kind === "hourly") { g.data.values = null; g.data.parsed = null; } });
-    toast(`Tarkasteluvuosi ${state.year}: valitse säätiedot ja tuntitiedostot uudelleen.`);
+    const cleared = [...state.circuits, ...state.meters].filter((g) => g.data.kind === "hourly" && g.data.values);
+    cleared.forEach((g) => { g.data.values = null; g.data.parsed = null; });
+    toast(`Tarkasteluvuosi ${state.year}: valitse säätiedot uudelleen${cleared.length ? ` ja tuntitiedostot (${cleared.map((g) => g.name).join(", ")})` : ""}.`, false, 9000);
     loadStations();
     renderAll();
     renderWeather();
@@ -4218,7 +4710,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   $("#v3dColor").addEventListener("change", (e) => { v3dPrefs.color = e.target.value; saveV3dPrefs(); refresh3d(); });
   if (window.ResizeObserver) new ResizeObserver(() => { map.invalidateSize(); RH3D.resize(); }).observe($(".mapwrap"));
 
+  // Replacing a list's HTML blurs the focused field inside it, and the field's change event can ask for another
+  // render while the first is still running. Such a request waits until the running render has finished.
+  let rendering = false, renderPending = false;
   function renderAll() {
+    if (rendering) { renderPending = true; return; }
+    rendering = true;
+    try { renderAllNow(); } finally { rendering = false; }
+    if (renderPending) { renderPending = false; queueMicrotask(renderAll); }
+  }
+  function renderAllNow() {
     renderPrices();
     renderBuildings();
     drawBuildings();
@@ -4252,8 +4753,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     const ys = $("#year");
     const cy = new Date().getFullYear();
     for (let y = cy; y >= cy - 8; y--) ys.insertAdjacentHTML("beforeend", `<option value="${y}">${y}</option>`);
-    META = { version: "0.5.0 (selain)", use_types: RH.USE_TYPES, attribution: { ...RH.ATTR, prices: RH.PRICE_ATTR }, has_mml_key: false,
-      heat_units: Object.fromEntries(Object.entries(RH.HEAT_UNITS).map(([k, v]) => [k, v.label])) };
+    META = { version: "0.6.0 (selain)", use_types: RH.USE_TYPES, attribution: { ...RH.ATTR, prices: RH.PRICE_ATTR }, has_mml_key: false,
+      heat_units: Object.fromEntries(Object.entries(RH.HEAT_UNITS).map(([k, v]) => [k, v.label])), heating_systems: RH.HEATING_SYSTEMS };
     try { $("#mmlKey").value = localStorage.getItem(KEY_STORE) || ""; } catch (_) { /* storage unavailable */ }
     META.has_mml_key = !!mmlKey();
     $("#mmlKey").addEventListener("change", () => {

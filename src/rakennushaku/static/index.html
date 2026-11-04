@@ -55,10 +55,10 @@
 
     <section class="step" id="step3">
       <div class="step-head"><span class="num" aria-hidden="true">3</span><h2>Nykyinen energiankulutus</h2></div>
-      <p class="hint">Kulutus annetaan sähkömittareittain ja lämmityspiireittäin, koska tieto tulee laskuilta ja mittareilta, ei rakennuksittain. Vuoden pitää olla sama kuin tarkasteluvuosi.</p>
+      <p class="hint">Kulutus annetaan sähkömittareittain ja lämmitysjärjestelmittäin (kattila tai lämpöpumppu ja sen rakennukset), koska tieto tulee laskuilta ja mittareilta, ei rakennuksittain. Vuoden pitää olla sama kuin tarkasteluvuosi.</p>
       <div id="groupCards"></div>
       <div class="row wrap">
-        <button type="button" class="btn small" id="addCircuit">Lisää lämmityspiiri</button>
+        <button type="button" class="btn small" id="addCircuit">Lisää lämmitysjärjestelmä</button>
         <button type="button" class="btn small" id="addMeter">Lisää sähkömittari</button>
       </div>
     </section>
@@ -94,6 +94,7 @@
       <button type="button" class="btn primary wide" id="runModel">Laske tuntiprofiili</button>
       <div id="checklist" class="checklist"></div>
       <div class="row wrap">
+        <button type="button" class="btn small" id="newProject">Uusi projekti</button>
         <button type="button" class="btn small" id="saveProject">Tallenna projekti</button>
         <label class="btn small file">Avaa projekti
           <input type="file" id="loadProject" accept=".json,application/json">
@@ -137,7 +138,7 @@
   </section>
 </main>
 
-<div id="toast" class="toast" role="status" hidden></div>
+<div id="toast" class="toasts" role="status" aria-live="polite"></div>
 <div id="tip" class="tip" hidden></div>
 
 <script src="/static/vendor/leaflet/leaflet.js"></script>

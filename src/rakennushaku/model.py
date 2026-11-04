@@ -19,6 +19,14 @@ The default parameters are illustrative starting points for the profile
   fill the missing hours
 
 Fit is reported as CV(RMSE) (ASHRAE Guideline 14: monthly ≤ 15 %, hourly ≤ 30 %).
+
+Heating system per heat circuit (data.system): fuel boiler (default), district heat,
+direct electric or heat pump. For the electric ones the heating electricity
+(heat / COP) runs through an electricity meter (data.el_meter). It is taken out of
+that meter's data, so the electricity series stays "other electricity": the
+calculator supplies heat from its own sources and would otherwise count it twice.
+If the heating electricity is not metered separately, it is separated from the
+meter's data by fitting three parts at once: heating, ventilation and base load.
 """
 
 from __future__ import annotations
@@ -240,14 +248,136 @@ def _round(v: float | None) -> float | None:
     return None if v is None else round(v, 3)
 
 
+def _solve(G: list[list[float]], h: list[float]) -> list[float] | None:
+    """Small linear system by Gaussian elimination with partial pivoting (same steps as the JS engine)."""
+    n = len(h)
+    A = [[float(G[i][j]) for j in range(n)] + [float(h[i])] for i in range(n)]
+    scale = max(1.0, max(abs(A[i][i]) for i in range(n)))
+    for c in range(n):
+        p = c
+        for r in range(c + 1, n):
+            if abs(A[r][c]) > abs(A[p][c]):
+                p = r
+        if abs(A[p][c]) <= 1e-12 * scale:
+            return None
+        A[c], A[p] = A[p], A[c]
+        for r in range(c + 1, n):
+            f = A[r][c] / A[c][c]
+            for k in range(c, n + 1):
+                A[r][k] -= f * A[c][k]
+    x = [0.0] * n
+    for r in range(n - 1, -1, -1):
+        acc = A[r][n]
+        for k in range(r + 1, n):
+            acc -= A[r][k] * x[k]
+        x[r] = acc / A[r][r]
+    return x
+
+
+def _dot(a: np.ndarray, b: np.ndarray) -> float:
+    return float(np.dot(a, b))
+
+
+def _nnls_cols(X: list[np.ndarray], y: np.ndarray) -> list[float]:
+    """Least squares y ≈ Σ c_j·X_j with c ≥ 0, by trying every subset of columns (n ≤ 3)."""
+    n = len(X)
+    G = [[_dot(X[i], X[j]) for j in range(n)] for i in range(n)]
+    h = [_dot(X[i], y) for i in range(n)]
+    yy = _dot(y, y)
+    best_sse, best = None, [0.0] * n
+    for mask in range(1, 1 << n):
+        idx = [i for i in range(n) if (mask >> i) & 1]
+        if any(G[i][i] <= 0 for i in idx):
+            continue
+        sol = _solve([[G[i][j] for j in idx] for i in idx], [h[i] for i in idx])
+        if sol is None or any(v < 0 for v in sol):
+            continue
+        c = [0.0] * n
+        for i, v in zip(idx, sol):
+            c[i] = v
+        sse = yy
+        for i in range(n):
+            sse -= 2.0 * c[i] * h[i]
+            for j in range(n):
+                sse += c[i] * G[i][j] * c[j]
+        if best_sse is None or sse < best_sse - 1e-9 * max(1.0, abs(yy)):
+            best_sse, best = sse, c
+    return best
+
+
+def calibrate_cols(cols: list[np.ndarray], data: dict | None, year: int) -> tuple[list[np.ndarray], dict]:
+    """Calibrate several model parts at once; returns the calibrated parts and a report.
+
+    Used for an electricity meter that also carries heating electricity: the parts are
+    ventilation (warm weather), base load and heating (cold weather)."""
+    n = len(cols)
+    model = sum(cols)
+    total_model = float(model.sum())
+    kind = (data or {}).get("kind", "none")
+    rep: dict = {"kind": kind, "model_total_kwh": round(total_model, 0)}
+    if kind == "annual":
+        target = float(data.get("kwh") or 0)
+        if target <= 0 or total_model <= 0:
+            rep["warning"] = "Vuosikulutus tai mallin tulos on nolla; mallin oletus käytössä."
+            return list(cols), rep
+        k = target / total_model
+        rep.update({"scale": round(k, 3), "target_kwh": round(target, 0),
+                    "note": "Vuosisumma kalibroitu; lämmityssähkön ja muun sähkön suhde tulee mallista."})
+        return [c * k for c in cols], rep
+    if kind == "monthly":
+        months = data.get("kwh_months") or []
+        y = np.array([np.nan if v in (None, "") else float(v) for v in months] + [np.nan] * (12 - len(months)))[:12]
+        ok = ~np.isnan(y)
+        if ok.sum() < n + 1:
+            rep["warning"] = f"Kuukausiarvoja on alle {n + 1}; mallin oletus käytössä."
+            return list(cols), rep
+        Xm = [monthly_sum(c, year) for c in cols]
+        coef = _nnls_cols([x[ok] for x in Xm], y[ok])
+        fit = sum(coef[j] * Xm[j] for j in range(n))
+        rep.update({"coef": [round(c, 3) for c in coef], "months_used": int(ok.sum()),
+                    "cv_rmse": _round(_cv_rmse(y[ok], fit[ok], n)), "limit": 0.15,
+                    "target_kwh": round(float(np.nansum(y)), 0),
+                    "measured_months": [None if np.isnan(v) else round(float(v), 0) for v in y],
+                    "fitted_months": [round(float(v), 0) for v in fit]})
+        if ok.sum() < 12:
+            rep["note"] = f"{12 - int(ok.sum())} kuukautta täydennetty sovitteella."
+        return [coef[j] * cols[j] for j in range(n)], rep
+    if kind == "hourly":
+        vals = np.array([np.nan if v is None else float(v) for v in data.get("values") or []], dtype=float)
+        if len(vals) != HOURS:
+            rep["warning"] = "Tuntisarjan pituus ei ole 8 760; mallin oletus käytössä."
+            return list(cols), rep
+        ok = ~np.isnan(vals)
+        if ok.sum() < 24 * 14:
+            rep["warning"] = "Mitattuja tunteja on alle kaksi viikkoa; mallin oletus käytössä."
+            return list(cols), rep
+        coef = _nnls_cols([c[ok] for c in cols], vals[ok])
+        parts = [coef[j] * cols[j] for j in range(n)]
+        fit = sum(parts)
+        out = np.where(ok, vals, fit)
+        comps = []
+        for j in range(n):
+            share = np.where(fit > 0, np.divide(parts[j], fit, out=np.zeros(HOURS), where=fit > 0),
+                             np.where(model > 0, np.divide(cols[j], model, out=np.zeros(HOURS), where=model > 0), 1.0 / n))
+            comps.append(out * share)
+        rep.update({"coef": [round(c, 3) for c in coef], "hours_measured": int(ok.sum()),
+                    "hours_filled": int((~ok).sum()), "cv_rmse": _round(_cv_rmse(vals[ok], fit[ok], n)),
+                    "limit": 0.30, "target_kwh": round(float(out.sum()), 0),
+                    "note": "Mitatut tunnit käytetään sellaisenaan"
+                            + ("; puuttuvat tunnit täydennetty sovitteella." if (~ok).any() else ".")})
+        return comps, rep
+    rep["note"] = "Ei kulutustietoa: tulos on mallin oletus, ei tilan kulutus."
+    return list(cols), rep
+
+
 # --------------------------------------------------------------------------- whole farm
 
 def _mwh(kwh: float) -> str:
     return f"{kwh / 1000:.1f}".replace(".", ",")
 
 
-def _subtract_known(data: dict | None, K: np.ndarray, year: int) -> tuple[dict | None, str | None]:
-    """Remove the known buildings' share from a group's measured data."""
+def _subtract_known(data: dict | None, K: np.ndarray, year: int, what: str | None = None) -> tuple[dict | None, str | None]:
+    """Remove the known buildings' share (or, with `what`, another known series) from a group's measured data."""
     if not data or K.sum() <= 0:
         return data, None
     kind = data.get("kind", "none")
@@ -256,6 +386,9 @@ def _subtract_known(data: dict | None, K: np.ndarray, year: int) -> tuple[dict |
         rest = float(data.get("kwh") or 0) - float(K.sum())
         d["kwh"] = rest
         if rest <= 0:
+            if what:
+                return d, (f"{what[0].upper()}{what[1:]} ({_mwh(K.sum())} MWh) on vähintään mittarin kulutus "
+                           f"({_mwh(float(data.get('kwh') or 0))} MWh); muulle sähkölle ei jää mitään.")
             return d, (f"Tunnettujen rakennusten kulutus ({_mwh(K.sum())} MWh) on vähintään piirin "
                        f"kulutus ({_mwh(float(data.get('kwh') or 0))} MWh); muille ei jää lämpöä.")
         return d, None
@@ -274,7 +407,7 @@ def _subtract_known(data: dict | None, K: np.ndarray, year: int) -> tuple[dict |
                 r = 0.0
             out.append(r)
         d["kwh_months"] = out
-        return d, (f"{neg} kuukautena tunnettujen rakennusten osuus ylitti mitatun; erotus rajattiin nollaan." if neg else None)
+        return d, (f"{neg} kuukautena {what or 'tunnettujen rakennusten osuus'} ylitti mitatun; erotus rajattiin nollaan." if neg else None)
     if kind == "hourly":
         vals = data.get("values") or []
         out, neg = [], 0
@@ -288,7 +421,7 @@ def _subtract_known(data: dict | None, K: np.ndarray, year: int) -> tuple[dict |
                 r = 0.0
             out.append(r)
         d["values"] = out
-        return d, (f"{neg} tuntina tunnettujen rakennusten osuus ylitti mitatun; erotus rajattiin nollaan." if neg else None)
+        return d, (f"{neg} tuntina {what or 'tunnettujen rakennusten osuus'} ylitti mitatun; erotus rajattiin nollaan." if neg else None)
     return d, None
 
 
@@ -342,6 +475,90 @@ def _group(members: list[dict], parts: dict, pw: str, pb: str, known_key: str, d
     return series, per, rep
 
 
+def _share(part: np.ndarray, whole: np.ndarray, n: int) -> np.ndarray:
+    return np.divide(part, whole, out=np.full(HOURS, 1.0 / n), where=whole > 0)
+
+
+def _group_joint(members: list[dict], parts: dict, data: dict | None, year: int, defs: list[dict]):
+    """An electricity meter that also carries heating electricity not metered separately.
+
+    Parts fitted together: ventilation (el_w), base load (el_b + heating base / COP) and
+    heating (heat_w / COP). Returns the meter's other electricity, its per-building split,
+    the report, and for each deferred circuit its heating electricity and heat."""
+    per = {b["id"]: np.zeros(HOURS) for b in members}
+    known = [b for b in members if float(b.get("known_el_kwh") or 0) > 0]
+    rest = [b for b in members if b not in known]
+    K = np.zeros(HOURS)
+    for b in known:
+        sb = _scaled(parts[b["id"]]["el_w"] + parts[b["id"]]["el_b"], float(b["known_el_kwh"]))
+        per[b["id"]] = sb
+        K += sb
+    d, warn = _subtract_known(data, K, year)
+    Wv = sum((parts[b["id"]]["el_w"] for b in rest), np.zeros(HOURS))
+    Be = sum((parts[b["id"]]["el_b"] for b in rest), np.zeros(HOURS))
+    for df in defs:
+        df["W"] = sum((parts[b["id"]]["heat_w"] for b in df["members"]), np.zeros(HOURS)) / df["cop"]
+        df["B"] = sum((parts[b["id"]]["heat_b"] for b in df["members"]), np.zeros(HOURS)) / df["cop"]
+    Wh = sum((df["W"] for df in defs), np.zeros(HOURS))
+    Bh = sum((df["B"] for df in defs), np.zeros(HOURS))
+    cols = [Wv, Be + Bh, Wh]
+    if d and d.get("kind") == "annual" and float(d.get("kwh") or 0) <= 0:
+        comps = [np.zeros(HOURS)] * 3
+        rep = {"kind": "annual", "model_total_kwh": round(float(sum(cols).sum()), 0)}
+    else:
+        comps, rep = calibrate_cols(cols, d, year)
+        comps = [np.maximum(c, 0.0) for c in comps]
+    if warn:
+        rep["warning"] = warn
+    base_el = comps[1] * _share(Be, Be + Bh, 1) if rest else np.zeros(HOURS)
+    R_el = comps[0] + base_el
+    R_hel = comps[2] + (comps[1] - base_el)
+    model_el = Wv + Be
+    for b in rest:
+        per[b["id"]] = R_el * _share(parts[b["id"]]["el_w"] + parts[b["id"]]["el_b"], model_el, len(rest))
+    model_h = Wh + Bh
+    for df in defs:
+        df["hel"] = R_hel * _share(df["W"] + df["B"], model_h, len(defs))
+        df["heat"] = df["hel"] * df["cop"]
+        heat_model = sum((parts[b["id"]]["heat_w"] + parts[b["id"]]["heat_b"] for b in df["members"]), np.zeros(HOURS))
+        df["per"] = {b["id"]: df["heat"] * _share(parts[b["id"]]["heat_w"] + parts[b["id"]]["heat_b"], heat_model, len(df["members"]))
+                     for b in df["members"]}
+    hel_total = float(R_hel.sum())
+    note = f"Lämmityssähkö {_mwh(hel_total)} MWh erotettu mittarin kulutuksesta ({', '.join(df['name'] for df in defs)})."
+    rep["note"] = note + (" " + rep["note"] if rep.get("note") else "")
+    rep["heating_el_kwh"] = round(hel_total, 0)
+    if known:
+        rep["note"] = f"Tunnettu kulutus {_mwh(K.sum())} MWh: " + ", ".join(b.get("name", b["id"]) for b in known) + ". " + rep["note"]
+        rep["known_kwh"] = round(float(K.sum()), 0)
+    return K + R_el, per, rep
+
+
+HEATING_SYSTEMS = {"fuel": "Kattila (hake, pelletti, öljy)", "district": "Kaukolämpö",
+                   "electric": "Sähkölämmitys", "heatpump": "Lämpöpumppu"}
+
+
+def heating_cop(data: dict | None) -> float | None:
+    """Heat per unit of electricity for electric heating systems; None for fuel and district heat."""
+    sys_ = (data or {}).get("system") or "fuel"
+    if sys_ == "heatpump":
+        return max(1.0, float((data or {}).get("cop") or 3.0))
+    if sys_ == "electric":
+        return 1.0
+    return None
+
+
+def _capacity_check(rep: dict, series: np.ndarray, cap) -> None:
+    if cap in (None, "") or float(cap) <= 0:
+        return
+    over = int((series > float(cap)).sum())
+    rep["capacity_kw"] = float(cap)
+    rep["hours_over_capacity"] = over
+    if over:
+        msg = (f"Huipputeho {series.max():.0f} kW ylittää kattilan tehon {float(cap):.0f} kW "
+               f"{over} tuntina. Tarkista profiili (esim. broilerierien ajoitus) tai kattilan teho.")
+        rep["warning"] = (rep["warning"] + " " + msg) if rep.get("warning") else msg
+
+
 def run(project: dict) -> dict:
     """Compute 8 760 h series for the project's selected buildings.
 
@@ -351,7 +568,11 @@ def run(project: dict) -> dict:
 
     scope: "both" (default), "heat" or "el" - an unheated machine hall or dryer can
     be included in the electricity only. data.capacity_kw (heat circuits) checks
-    the modelled peak against the boiler.
+    the modelled peak against the boiler. data.system, data.cop and data.el_meter
+    (heat circuits) describe electric heating; see the module docstring.
+
+    "electricity" is the electricity other than heating; totals.heating_el_kwh is
+    the heating electricity of electric circuits, which the heat series already covers.
     """
     year = int(project["year"])
     t = np.array([np.nan if v is None else float(v) for v in project["temperature"]], dtype=float)
@@ -367,33 +588,87 @@ def run(project: dict) -> dict:
     parts = {b["id"]: building_series(b, t, year) for b in blds}
     heat_total = np.zeros(HOURS)
     el_total = np.zeros(HOURS)
+    hel_total = np.zeros(HOURS)
     per_building = {b["id"]: {"heat": np.zeros(HOURS), "el": np.zeros(HOURS)} for b in blds}
     reports = {"circuits": [], "meters": []}
+    meters = project.get("meters") or []
+    mids = [m["id"] for m in meters]
+    meter_by_id = {m["id"]: m for m in meters}
+    hel_known = {m: np.zeros(HOURS) for m in mids}     # heating electricity already known, per meter
+    hel_names = {m: [] for m in mids}
+    deferred = {m: [] for m in mids}                   # electric circuits to separate from the meter's data
 
-    for grp_key, part_w, part_b, out_key, tot, gid, scope_ok, known_key in (
-        ("circuits", "heat_w", "heat_b", "heat", heat_total, "circuit", ("both", "heat"), "known_heat_kwh"),
-        ("meters", "el_w", "el_b", "el", el_total, "meter", ("both", "el"), "known_el_kwh"),
-    ):
-        for g in project.get(grp_key) or []:
-            members = [b for b in blds if b.get(gid) == g["id"] and b.get("scope", "both") in scope_ok]
-            if not members:
-                continue
-            series, per, rep = _group(members, parts, part_w, part_b, known_key, g.get("data"), year)
-            tot += series
-            for bid, sb in per.items():
-                per_building[bid][out_key] += sb
-            rep.update({"id": g["id"], "name": g.get("name", g["id"]), "members": [b["id"] for b in members],
-                        "annual_kwh": round(float(series.sum()), 0), "peak_kw": round(float(series.max()), 1)})
-            cap = (g.get("data") or {}).get("capacity_kw")
-            if cap not in (None, "") and float(cap) > 0:
-                over = int((series > float(cap)).sum())
-                rep["capacity_kw"] = float(cap)
-                rep["hours_over_capacity"] = over
-                if over:
-                    msg = (f"Huipputeho {series.max():.0f} kW ylittää kattilan tehon {float(cap):.0f} kW "
-                           f"{over} tuntina. Tarkista profiili (esim. broilerierien ajoitus) tai kattilan teho.")
-                    rep["warning"] = (rep["warning"] + " " + msg) if rep.get("warning") else msg
-            reports[grp_key].append(rep)
+    def has_data(g: dict | None) -> bool:
+        return bool(g) and ((g.get("data") or {}).get("kind") or "none") != "none"
+
+    for g in project.get("circuits") or []:
+        members = [b for b in blds if b.get("circuit") == g["id"] and b.get("scope", "both") in ("both", "heat")]
+        if not members:
+            continue
+        d = g.get("data") or {}
+        cop = heating_cop(d)
+        mid = d.get("el_meter") if d.get("el_meter") in mids else (mids[0] if mids else None)
+        base = {"id": g["id"], "name": g.get("name", g["id"]), "members": [b["id"] for b in members],
+                "system": d.get("system") or "fuel"}
+        if cop and mid and (d.get("kind") or "none") == "none" and has_data(meter_by_id[mid]):
+            rep = {**base, "kind": "from_meter", "cop": cop, "el_meter": mid}
+            deferred[mid].append({"g": g, "name": base["name"], "members": members, "cop": cop, "rep": rep})
+            reports["circuits"].append(rep)
+            continue
+        series, per, rep = _group(members, parts, "heat_w", "heat_b", "known_heat_kwh", d, year)
+        heat_total += series
+        for bid, sb in per.items():
+            per_building[bid]["heat"] += sb
+        rep.update({**base, "annual_kwh": round(float(series.sum()), 0), "peak_kw": round(float(series.max()), 1)})
+        if cop:
+            hel = series / cop
+            hel_total += hel
+            rep.update({"cop": cop, "heating_el_kwh": round(float(hel.sum()), 0), "el_meter": mid})
+            if mid:
+                hel_known[mid] += hel
+                hel_names[mid].append(base["name"])
+        _capacity_check(rep, series, d.get("capacity_kw"))
+        reports["circuits"].append(rep)
+
+    for g in meters:
+        members = [b for b in blds if b.get("meter") == g["id"] and b.get("scope", "both") in ("both", "el")]
+        defs = deferred.get(g["id"]) or []
+        if not members and not defs:
+            continue
+        data = g.get("data")
+        Hk = hel_known[g["id"]]
+        hwarn = None
+        if Hk.sum() > 0:
+            data, hwarn = _subtract_known(data, Hk, year, what="lämmityssähkö")
+        if defs:
+            series, per, rep = _group_joint(members, parts, data, year, defs)
+        else:
+            series, per, rep = _group(members, parts, "el_w", "el_b", "known_el_kwh", data, year)
+        if Hk.sum() > 0:
+            msg = f"Lämmityssähkö {_mwh(Hk.sum())} MWh vähennetty mittarin tiedoista ({', '.join(hel_names[g['id']])})."
+            rep["note"] = msg + (" " + rep["note"] if rep.get("note") else "")
+            rep["heating_el_kwh"] = round(float(Hk.sum()) + float(rep.get("heating_el_kwh") or 0), 0)
+            if hwarn:
+                rep["warning"] = (rep["warning"] + " " + hwarn) if rep.get("warning") else hwarn
+        el_total += series
+        for bid, sb in per.items():
+            per_building[bid]["el"] += sb
+        rep.update({"id": g["id"], "name": g.get("name", g["id"]), "members": [b["id"] for b in members],
+                    "annual_kwh": round(float(series.sum()), 0), "peak_kw": round(float(series.max()), 1)})
+        reports["meters"].append(rep)
+        for df in defs:
+            heat_total += df["heat"]
+            hel_total += df["hel"]
+            for bid, sb in df["per"].items():
+                per_building[bid]["heat"] += sb
+            r = df["rep"]
+            r.update({"annual_kwh": round(float(df["heat"].sum()), 0), "peak_kw": round(float(df["heat"].max()), 1),
+                      "heating_el_kwh": round(float(df["hel"].sum()), 0),
+                      "note": (f"Lämpö = lämmityssähkö {_mwh(df['hel'].sum())} MWh × {df['cop']:.1f}, "
+                               f"erotettu mittarin {g.get('name', g['id'])} kulutuksesta. Muoto tulee mallista.")})
+            _capacity_check(r, df["heat"], (df["g"].get("data") or {}).get("capacity_kw"))
+    for df in (x for v in deferred.values() for x in v):
+        df["rep"].setdefault("annual_kwh", 0)
 
     cal = calendar_columns(year)
     return {
@@ -411,6 +686,7 @@ def run(project: dict) -> dict:
             "heat_kwh": round(float(heat_total.sum()), 0),
             "electricity_peak_kw": round(float(el_total.max()), 1),
             "heat_peak_kw": round(float(heat_total.max()), 1),
+            "heating_el_kwh": round(float(hel_total.sum()), 0),
         },
         "buildings": [
             {"id": bid, "electricity_kwh": round(float(v["el"].sum()), 0),

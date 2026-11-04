@@ -1,7 +1,7 @@
 <h1 id="rakennushaku-menetelmät-ja-lähteet">Rakennushaku – menetelmät ja
 lähteet</h1>
-<p><strong>Versio:</strong> 0.5.0 · <strong>Päivitetty:</strong>
-3.11.2026<br />
+<p><strong>Versio:</strong> 0.6.0 · <strong>Päivitetty:</strong>
+4.11.2026<br />
 <strong>Tekijät:</strong> Miiro Jääskeläinen ja Suvi Karirinne,
 Seinäjoen ammattikorkeakoulu (SEAMK), Maatalous ja energia
 -tutkimusryhmä<br />
@@ -245,8 +245,27 @@ arvot: VTT Technology 258 [14].</td>
 <td>0,85 (muokattava)</td>
 <td>Laskurin oletus (C26) [18]</td>
 </tr>
+<tr class="even">
+<td>kWh tai MWh sähköä lämmitykseen</td>
+<td>lämpö = sähkö × COP</td>
+<td>Suora sähkölämmitys COP 1; lämpöpumppu käyttäjän SCOP, oletus 3,0
+(oma oletus)</td>
+</tr>
 </tbody>
 </table>
+<p><strong>Lämmitystapa.</strong> Jokaiselle lämmitysjärjestelmälle
+valitaan lämmitystapa: kattila (hake, pelletti, öljy), kaukolämpö,
+sähkölämmitys tai lämpöpumppu. Kaukolämpö annetaan lämpönä (kWh tai MWh
+laskulta). Sähkölämmityksen ja lämpöpumpun lämmityssähkö kulkee valitun
+sähkömittarin kautta, joten se käsitellään luvussa 8, ettei sitä lasketa
+kahteen kertaan.</p>
+<ul>
+<li><strong>SCOP on vakio</strong> koko vuoden (oma yksinkertaistus).
+Todellisuudessa ilma-vesilämpöpumpun COP laskee pakkasella, joten
+lämmityssähkön talvihuippu on mallissa liian pieni ja lämmön huippu
+lämmityssähköstä johdettuna liian suuri tai pieni sen mukaan, mistä
+tieto tulee. Maalämpöpumpulle vakio on parempi oletus.</li>
+</ul>
 <h2 id="rakennusmalli">7. Rakennusmalli</h2>
 <p>Jokaiselle rakennukselle lasketaan tunneittain sääosa W ja perusosa B
 sekä lämmölle että sähkölle:</p>
@@ -429,8 +448,9 @@ Muuten liittymän mitattu kulutus kohdistuisi kokonaan lämmitettyjen
 rakennusten profiilille.</p>
 <h2 id="kalibrointi-tilan-kulutustietoon">8. Kalibrointi tilan
 kulutustietoon</h2>
-<p>Kalibrointi tehdään lämmityspiireittäin ja sähkömittareittain, koska
-kulutustieto tulee laskuilta ja mittareilta, ei rakennuksittain.</p>
+<p>Kalibrointi tehdään lämmitysjärjestelmittäin (lämmityspiireittäin) ja
+sähkömittareittain, koska kulutustieto tulee laskuilta ja mittareilta,
+ei rakennuksittain.</p>
 <table>
 <colgroup>
 <col style="width: 33%" />
@@ -499,6 +519,28 @@ piirin tunnittaista lämpötehoa verrataan siihen ja ylittävät tunnit
 raportoidaan. Laskuri raportoi vastaavan tilanteen lämmitysvajeena
 (K13–L13) [18].</li>
 </ul>
+<p><strong>Sähkölämmitys ja lämpöpumppu.</strong> Laskuri tuottaa
+lämmöntarpeen (sarake F) omista lähteistään ja laskee niiden sähkön itse
+[18]. Siksi viennin sähkösarake E on <em>muu sähkö</em>: nykyinen
+lämmityssähkö ei saa olla siinä, tai se laskettaisiin kahteen kertaan.
+Sovellus raportoi nykyisen lämmityssähkön erikseen.</p>
+<ul>
+<li><strong>Lämmityssähkö mitataan erikseen</strong> (alamittari tai
+lämpöpumpun oma mittari, vuosi, kuukaudet tai tunnit): lämpö =
+lämmityssähkö × COP, ja lämmityssähkö vähennetään sähkömittarin tiedosta
+kuten tunnetun rakennuksen kulutus. Lämpömittarin lukema voidaan antaa
+myös suoraan lämpönä.</li>
+<li><strong>Lämmityssähköä ei mitata erikseen:</strong> sähkömittarin
+tieto sovitetaan kolmella osalla yhtä aikaa: E ≈ c₁·ilmanvaihto +
+c₂·(perussähkö + lämmön perusosa / COP) + c₃·lämmön sääosa / COP, c ≥ 0.
+Ratkaisu haetaan kokeilemalla kaikki sarakeyhdistelmät ja valitsemalla
+pienin neliösumma ei-negatiivisista ratkaisuista [21]. Lämmitysosuus
+kerrotaan COP:llä lämmöksi. Kuukausi- tai tuntitiedolla lämmityksen
+osuus erottuu, koska se on talvipainotteinen ja ilmanvaihto
+kesäpainotteinen. <strong>Pelkällä vuosisummalla</strong> osuus tulee
+mallin oletusparametreista eikä ole luotettava; kuukausitiedot ovat
+tällöin suositeltavia.</li>
+</ul>
 <h2 id="pörssihinnat">9. Pörssihinnat</h2>
 <ul>
 <li><strong>Lähde.</strong> Hinnat haetaan Sähkötin-palvelusta, joka
@@ -519,7 +561,25 @@ tarkasteluunsa. Selaimesta suoraan haettavissa olevista lähteistä vain
 Sähkötin salli kutsut (CORS); Elering ja Energy-Charts eivät sallineet
 (todettu 31.10.2026).</li>
 </ul>
-<h2 id="viennit-laskuriin">10. Viennit laskuriin</h2>
+<h2 id="tulokset-ja-viennit-laskuriin">10. Tulokset ja viennit
+laskuriin</h2>
+<p><strong>Tulosnäkymä.</strong></p>
+<ul>
+<li><strong>Pysyvyyskäyrä</strong> lämpö- ja sähköteholle: vuoden tunnit
+järjestettyinä suurimmasta tehosta pienimpään. Kattiloiden,
+lämpöpumppujen ja CHP:n mitoitus tehdään siitä: esimerkiksi
+peruskuormalaite mitoitetaan tehoon, joka ylittyy tuhansia tunteja
+vuodessa, ja huippu katetaan muilla. Annettu lämmitysteho piirretään
+viivana, ja ylittävien tuntien määrä kerrotaan.</li>
+<li><strong>Ominaiskulutus kWh/m²</strong> rakennuksittain kertoo, onko
+kalibrointi jakanut kulutuksen uskottavasti. Arvot alle 20 tai yli 800
+kWh/m² merkitään poikkeaviksi (oma karkea raja; tarkoitus on huomata
+virheellinen ala tai käyttötyyppi, ei arvioida rakennusta).</li>
+<li><strong>Vanhentunut tulos.</strong> Kun valintoja muutetaan,
+edellinen tulos jää näkyviin himmennettynä, eikä sitä voi viedä ennen
+uudelleenlaskentaa.</li>
+</ul>
+<p><strong>Viennit.</strong></p>
 <table>
 <colgroup>
 <col style="width: 33%" />
@@ -548,22 +608,23 @@ Sähkötin salli kutsut (CORS); Elering ja Energy-Charts eivät sallineet
 </tr>
 </tbody>
 </table>
-<p>CSV-tiedostoissa on puolipiste-erotin, desimaalipilkku ja UTF-8 BOM
-suomenkielistä Exceliä varten. Laskurin oma aurinkosähkö- ja
-lämpöpumppulaskenta käyttää vielä laskurin esimerkkivuotta [18].
-Ulkolämpötila viedään sarakkeeksi G myöhempää käyttöä varten.</p>
+<p>Sähkösarake E on muu sähkö kuin lämmitys (luku 8). CSV-tiedostoissa
+on puolipiste-erotin, desimaalipilkku ja UTF-8 BOM suomenkielistä
+Exceliä varten. Laskurin oma aurinkosähkö- ja lämpöpumppulaskenta
+käyttää vielä laskurin esimerkkivuotta [18]. Ulkolämpötila viedään
+sarakkeeksi G myöhempää käyttöä varten.</p>
 <h2 id="toteutus-ja-testaus">11. Toteutus ja testaus</h2>
 <ul>
 <li><strong>Kaksi toteutusta.</strong> Sovellus on Python-palvelin
 (FastAPI) ja yhden tiedoston selainversio. Selainversion
 laskentamoottori (<code>web/engine.js</code>) antaa samat tulokset kuin
-Python-malli; <code>web/check_equivalence.py</code> vertaa niitä
-kahdeksassa skenaariossa (ero 0,000 kWh/h).</li>
-<li><strong>Automaattiset testit.</strong> 37 testiä kattavat
+Python-malli; <code>web/check_equivalence.py</code> vertaa niitä 14
+skenaariossa, myös lämmitystavat (ero 0,000 kWh/h).</li>
+<li><strong>Automaattiset testit.</strong> 41 testiä kattavat
 aikakannan, kesäajan, tiedostojen jäsennyksen, rajapintavastausten
-käsittelyn, kalibrointitavat, optiot, vientimuodot ja 3D-näkymän
-tiedostot (<code>pytest</code>). GitHub Actions ajaa testit ja
-vastaavuustarkistuksen jokaisesta muutoksesta.</li>
+käsittelyn, kalibrointitavat, lämmitystavat, optiot, vientimuodot ja
+3D-näkymän tiedostot (<code>pytest</code>). GitHub Actions ajaa testit
+ja vastaavuustarkistuksen jokaisesta muutoksesta.</li>
 <li><strong>Live-testit 31.10.2026.</strong> MML (osoitehaku,
 kiinteistöhaku pisteellä ja tunnuksella, rakennukset, ortokuva), FMI
 (asemat, vuoden 2025 tuntisarja), Open-Meteo ja Sähkötin (2023–2026)
@@ -662,6 +723,70 @@ kiinteistölle</td>
 </tr>
 </tbody>
 </table>
+<p><strong>Korjattu versiossa 0.6.0 (energianeuvojan näkökulmasta tehty
+käyttöliittymäarvio 4.11.2026)</strong></p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Havainto</th>
+<th>Korjaus</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Lämpöpiiri oletti polttoaineen; sähkölämmitteinen rakennus saattoi
+tulla lasketuksi kahteen kertaan</td>
+<td>Lämmitystapa (kattila, kaukolämpö, sähkö, lämpöpumppu);
+lämmityssähkö erotetaan mittarista (luku 8)</td>
+</tr>
+<tr class="even">
+<td>Mitoitukseen tarvittava tehojakauma selvisi vain CSV:stä</td>
+<td>Pysyvyyskäyrät ja lämmitystehon viiva (luku 10)</td>
+</tr>
+<tr class="odd">
+<td>Kalibroinnin jakoa rakennuksille ei voinut arvioida</td>
+<td>kWh/m² rakennusriville ja poikkeavan arvon merkintä</td>
+</tr>
+<tr class="even">
+<td>Tarkistuslista näytti “Kulutustiedot annettu” ennen kuin mitään oli
+valittu</td>
+<td>Tieto tarkistetaan vain käytössä olevista järjestelmistä ja
+mittareista</td>
+</tr>
+<tr class="odd">
+<td>Negatiivinen tai nolla-ala hyväksyttiin; käsin lisätyn rakennuksen
+100 m²:n oletus jäi huomaamatta</td>
+<td>Ala tarkistetaan; oletusala merkitään korttiin ja
+tarkistuslistaan</td>
+</tr>
+<tr class="even">
+<td>Tulokset katosivat mistä tahansa muutoksesta</td>
+<td>Vanhentunut tulos jää näkyviin himmennettynä</td>
+</tr>
+<tr class="odd">
+<td>Ilmoitukset korvasivat toisensa ja peittivät tuloksia</td>
+<td>Ilmoitukset pinoutuvat vasempaan alakulmaan</td>
+</tr>
+<tr class="even">
+<td>Edellisen asiakkaan luonnos palautui automaattisesti</td>
+<td><em>Uusi projekti</em> tyhjentää luonnoksen</td>
+</tr>
+<tr class="odd">
+<td>Rakennuksen otsikon klikkaus poisti sen laskennasta</td>
+<td>Valinta vain valintaruudusta (kartalla klikkaus vaihtaa
+valinnan)</td>
+</tr>
+<tr class="even">
+<td>Yksikkövalinnalla ei ollut nimeä ruudunlukijalle (WCAG,
+kriittinen)</td>
+<td>Nimet ja painikeryhmien tila; axe-core: ei WCAG A/AA -rikkeitä</td>
+</tr>
+</tbody>
+</table>
 <p><strong>Avoimet, vakavuusjärjestyksessä</strong></p>
 <ol type="1">
 <li><strong>Oletusparametreja ei ole validoitu</strong> (suuri). H,
@@ -699,6 +824,12 @@ voi silti hakea.</li>
 (pieni). Selainversiossa jokainen käyttäjä tarvitsee oman MML-avaimen.
 Jos SEAMK tarjoaa sovellusta palveluna, Open-Meteon ja Sähkötinin
 ei-kaupallisen käytön ehdot on tarkistettava.</li>
+<li><strong>Lämmityssähkön erottelu pelkästä vuosisummasta</strong>
+(keskisuuri). Kun sähkölämmitteisen tilan ainoa tieto on liittymän
+vuosisumma, lämmityksen osuus tulee mallin oletusparametreista.
+Suositus: anna kuukausitiedot (Datahub) tai lämmityksen alamittarin
+lukema. Lämpöpumpun SCOP on vakio, joten ilma-vesilämpöpumpun talven
+lämmityssähkö jää liian pieneksi.</li>
 <li><strong>3D-näkymän korkeudet ja maasto</strong> (pieni). Korkeudet
 ovat arvioita eikä maastoa ole. Näkymä havainnollistaa kulutuksen
 jakautumista, mutta sitä ei pidä käyttää esimerkiksi aurinkopaneelien

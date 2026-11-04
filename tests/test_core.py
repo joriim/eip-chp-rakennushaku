@@ -350,3 +350,58 @@ def test_incomplete_weather_message_counts_missing_hours():
         p["temperature"][-1 - i] = None
     with pytest.raises(ValueError, match="puuttuu 100 tuntia"):
         model.run(p)
+
+
+# --------------------------------------------------------------------------- heating systems
+def _hs_project(heat: dict, el: dict) -> dict:
+    from fixtures import synthetic_temp
+    from rakennushaku import app as appmod
+    t = [synthetic_temp(x) for x in hour_starts_utc(2025)]
+    p = {"year": 2025, "temperature": t,
+         "buildings": [
+             {"id": "h", "name": "Halli", "use": "lihasika", "heated_m2": 1500, "heated": True, "circuit": "c1", "meter": "m1"},
+             {"id": "k", "name": "Koti", "use": "asuin", "heated_m2": 180, "heated": True, "circuit": "c1", "meter": "m1"}],
+         "circuits": [{"id": "c1", "name": "Lämpö", "data": heat}],
+         "meters": [{"id": "m1", "name": "Liittymä", "data": el}]}
+    return model.run(appmod._prepare(p))
+
+
+def test_heat_pump_submeter_is_subtracted_from_the_meter():
+    r = _hs_project({"kind": "annual", "value": 50, "unit": "MWh_el", "system": "heatpump", "cop": 3.0},
+                    {"kind": "annual", "value": 200, "unit": "MWh"})
+    assert r["totals"]["heat_kwh"] == pytest.approx(150_000, abs=1)          # 50 MWh × COP 3
+    assert r["totals"]["heating_el_kwh"] == pytest.approx(50_000, abs=1)
+    assert r["totals"]["electricity_kwh"] == pytest.approx(150_000, abs=1)   # 200 − 50: other electricity only
+    assert "vähennetty" in r["calibration"]["meters"][0]["note"]
+
+
+def test_electric_heating_without_submeter_is_separated_from_meter_data():
+    months = [40, 34, 30, 21, 13, 9, 8, 9, 12, 19, 27, 36]
+    r = _hs_project({"kind": "none", "system": "electric"}, {"kind": "monthly", "unit": "MWh", "months": months})
+    total = sum(months) * 1000
+    # the meter's measured electricity = other electricity + heating electricity
+    assert r["totals"]["electricity_kwh"] + r["totals"]["heating_el_kwh"] == pytest.approx(total, rel=0.02)
+    assert r["totals"]["heat_kwh"] == pytest.approx(r["totals"]["heating_el_kwh"], abs=1)   # direct electric: COP 1
+    circ = r["calibration"]["circuits"][0]
+    assert circ["kind"] == "from_meter" and "erotettu" in circ["note"]
+    # heating electricity is the seasonal part: more in January than in July
+    assert r["monthly"]["heat"][0] > 5 * r["monthly"]["heat"][6]
+
+
+def test_district_heat_uses_heat_units_as_is():
+    r = _hs_project({"kind": "annual", "value": 120, "unit": "MWh", "system": "district"}, {"kind": "none"})
+    assert r["totals"]["heat_kwh"] == pytest.approx(120_000, abs=1)
+    assert r["totals"]["heating_el_kwh"] == 0
+
+
+def test_nnls_cols_matches_two_variable_solver():
+    rng = np.random.default_rng(3)
+    W, B = rng.random(50), rng.random(50)
+    y = 2.0 * W + 0.5 * B + rng.normal(0, 0.01, 50)
+    a, b = model._nnls2(W, B, y)
+    c = model._nnls_cols([W, B], y)
+    assert c[0] == pytest.approx(a, rel=1e-9) and c[1] == pytest.approx(b, rel=1e-9)
+    # a negative unconstrained coefficient is clipped to the best non-negative subset
+    y2 = 1.5 * W - 0.8 * B
+    c2 = model._nnls_cols([W, B], y2)
+    assert min(c2) >= 0

@@ -16,8 +16,8 @@ authors:
     given-names: "Suvi"
     orcid: "https://orcid.org/0000-0003-1000-557X"
     affiliation: "Seinäjoen ammattikorkeakoulu (SEAMK), Maatalous ja energia -tutkimusryhmä"
-version: "0.5.0"
-date-released: "2026-11-01"
+version: "0.6.0"
+date-released: "2026-11-04"
 license: MIT
 repository-code: "https://github.com/SeAMKedu/Rakennushaku"
 url: "https://seamkedu.github.io/Rakennushaku/"

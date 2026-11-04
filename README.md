@@ -2,7 +2,7 @@
 
 Rakennushaku muodostaa maatilan rakennuksille tunnittaisen sähkö- ja lämpöprofiilin **Maatilan hybridienergialaskuriin**. Profiili perustuu avoimeen paikkatietoon, tilan omaan kulutustietoon ja saman vuoden säähavaintoihin.
 
-**Versio 0.5.0 · prototyyppi** · EIP CHP Energiaälykäs eteläpohjalainen maatila · SEAMK, Maatalous ja energia -tutkimusryhmä
+**Versio 0.6.0 · prototyyppi** · EIP CHP Energiaälykäs eteläpohjalainen maatila · SEAMK, Maatalous ja energia -tutkimusryhmä
 
 - **Käytä selaimessa:** https://seamkedu.github.io/Rakennushaku/ (GitHub Pages; vaatii Pages-julkaisun, ks. *Kehitys*), tai avaa tiedosto [`web/rakennushaku.html`](web/rakennushaku.html) omalla koneella.
 - **Menetelmät, oletukset ja lähteet:** [docs/MENETELMAT_JA_LAHTEET.md](docs/MENETELMAT_JA_LAHTEET.md)
@@ -38,14 +38,20 @@ Kaikki laskenta tehdään käyttäjän selaimessa. Kulutustiedot eivät lähde k
    - **Mukana:** *lämpö ja sähkö*, *vain lämpö* tai *vain sähkö*. Ota esimerkiksi kuivuri tai konehalli mukaan vain sähköön, jos se on samassa liittymässä.
    - **Broilerikasvattamon erärytmi.** Anna halleille eri sisäänottopäivät, jos ne ovat eri vaiheessa.
    - **Tunnettu kulutus** (valinnainen), jos rakennuksella on oma kattila tai alamittari.
-3. **Nykyinen kulutus.** Anna kulutus lämmityspiireittäin ja sähkömittareittain, koska tieto tulee laskuilta ja mittareilta:
+3. **Nykyinen kulutus.** Anna kulutus lämmitysjärjestelmittäin (kattila tai lämpöpumppu ja sen rakennukset) ja sähkömittareittain, koska tieto tulee laskuilta ja mittareilta:
+   - *Lämmitystapa*: kattila (hake, pelletti, öljy), kaukolämpö, sähkölämmitys tai lämpöpumppu (SCOP, oletus 3,0). Sähkölämmityksen ja lämpöpumpun lämmityssähkö erotetaan valitun sähkömittarin kulutuksesta, joten anna mittarille liittymän koko kulutus. Jos lämmityssähköä ei mitata erikseen, jätä lämmitysjärjestelmälle *Ei tietoa*: osuus erotetaan mittarin tiedoista (kuukausitiedoilla luotettavasti, pelkällä vuosisummalla mallin oletusten varassa).
    - *Vuosi*: määrä ja yksikkö. Polttoaine muunnetaan lämmöksi hyötysuhteella (oletus 0,85). Valinnaisesti voi antaa säästä riippumattoman osuuden (käyttövesi, pesut).
    - *Kuukaudet*: vähintään kolme kuukautta.
    - *Tuntitiedosto*: Datahubin tai mittarin CSV. Vartit summataan tunneiksi ja kesäaika käsitellään.
    - *Kattilan teho* (valinnainen): sovellus varoittaa, jos mallin huipputeho ylittää sen.
 4. **Säätiedot.** Valitse lähin Ilmatieteen laitoksen asema, Open-Meteon arvio tilan kohdalla tai oma lämpötilatiedosto.
 5. **Sähkön pörssihinta** (valinnainen). Hae tarkasteluvuoden hinnat tai kaikki laskurin vuodet 2023–2026.
-6. **Energiaprofiili.** Paina *Laske tuntiprofiili*. Tarkista kalibrointitaulukosta sopivuus ja varoitukset. Lataa sen jälkeen CSV tai kopioi sarakkeet.
+6. **Energiaprofiili.** Paina *Laske tuntiprofiili*. Tarkista:
+   - **pysyvyyskäyrä**: kuinka monta tuntia vuodessa teho ylittää tietyn tason; annettu lämmitysteho näkyy viivana,
+   - **kWh/m²** rakennuksittain: poikkeava arvo kertoo yleensä väärästä alasta tai käyttötyypistä,
+   - kalibroinnin sopivuus ja varoitukset.
+
+   Lataa sen jälkeen CSV tai kopioi sarakkeet. Jos muutat valintoja, edellinen tulos jää himmennettynä näkyviin, kunnes painat *Laske uudelleen*. **Uusi projekti** tyhjentää kaiken seuraavaa asiakasta varten (tallenna ensin, jos tarvitset nykyistä).
 
 **3D-näkymä.** Kartan yläpuolelta *3D* näyttää rakennukset kolmiulotteisina ilmakuvan päällä. Korkeus on arvio (kerrokset × 3,5 m). Laskennan jälkeen väri kertoo rakennuksen mallinnetun vuotuisen lämmöntarpeen tai sähkönkulutuksen; ennen sitä väri näyttää valitut rakennukset. Rakennusta klikkaamalla näkyvät sen luvut.
 - *MapLibre GL* on oletus ja toimii myös omalta koneelta avattuna.
@@ -56,7 +62,7 @@ Kaikki laskenta tehdään käyttäjän selaimessa. Kulutustiedot eivät lähde k
 
 | Tiedosto | Sarakkeet | Minne laskurissa |
 |---|---|---|
-| `oma_kulutusdata_<vuosi>.csv` | A Tunti, B Kk, C Pv, D Klo, E Sähkö kWh/h, F Lämpö kWh/h, G Ulkolämpötila °C, H Pörssihinta €/MWh (jos haettu) | E–F → *Oma kulutusdata* E2 ja Ohjauspaneelin D4 = *Oma data*; H → *Hintahistoria*-välilehden vuoden sarake, K22 = *Pörssihinta*, K49 = vuosi |
+| `oma_kulutusdata_<vuosi>.csv` | A Tunti, B Kk, C Pv, D Klo, E Sähkö kWh/h (ilman lämmityssähköä), F Lämpö kWh/h, G Ulkolämpötila °C, H Pörssihinta €/MWh (jos haettu) | E–F → *Oma kulutusdata* E2 ja Ohjauspaneelin D4 = *Oma data*; H → *Hintahistoria*-välilehden vuoden sarake, K22 = *Pörssihinta*, K49 = vuosi |
 | `hintahistoria_2023-2026.csv` | A Tunti, B Aika (EET), C–F vuodet 2023–2026 | C–F → *Hintahistoria* C2 |
 
 Liitä aina valinnalla **Liitä määräten → Arvot**. Rivi 2 on 1.1. klo 00–01 ja rivi 8 761 on 31.12. klo 23–24 (kiinteä EET, ei kesäaikaa, karkauspäivä poistettu).
@@ -108,7 +114,7 @@ python docs/build_docs.py          # päivittää menetelmädokumentin (HTML vaa
 
 Viittaa ohjelmistoon tiedoston [CITATION.cff](CITATION.cff) tiedoilla. Zenodo-julkaisun jälkeen pysyvä DOI lisätään tähän.
 
-Jääskeläinen, M. & Karirinne, S. (2026). *Rakennushaku: tilan rakennukset ja tunnittainen energiaprofiili Maatilan hybridienergialaskuriin* (versio 0.5.0) [Tietokoneohjelma]. Seinäjoen ammattikorkeakoulu. https://github.com/SeAMKedu/Rakennushaku
+Jääskeläinen, M. & Karirinne, S. (2026). *Rakennushaku: tilan rakennukset ja tunnittainen energiaprofiili Maatilan hybridienergialaskuriin* (versio 0.6.0) [Tietokoneohjelma]. Seinäjoen ammattikorkeakoulu. https://github.com/SeAMKedu/Rakennushaku
 
 ## Tekijät ja tekijöiden panos
 

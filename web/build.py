@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "src" / "rakennushaku" / "static"
 WEB = ROOT / "web"
-VERSION = "0.5.0"
+VERSION = "0.6.0"
 
 
 def sub(text: str, old: str, new: str) -> str:
@@ -40,7 +40,7 @@ def ui_js() -> str:
              "/* Rakennushaku UI (browser version). Same UI as the Python app; data calls go to the in-browser engine RH. */")
     # ---- local API router replaces fetch() to the Python server
     start = js.index("  async function api(path, opts = {}) {")
-    end = js.index("  function toast(msg, isError) {")
+    end = js.index("  // Messages stack in the lower left corner")
     js = js[:start] + r'''  const KEY_STORE = "rakennushaku.mmlKey";
   const mmlKey = () => ($("#mmlKey") ? $("#mmlKey").value.trim() : "");
 
@@ -118,7 +118,7 @@ def ui_js() -> str:
     # ---- boot: metadata from the engine, key from this browser
     js = sub(js, '''    try { META = await api("/api/status"); } catch (e) { toast("Palvelimeen ei saatu yhteyttä.", true); }''',
              f'''    META = {{ version: "{VERSION} (selain)", use_types: RH.USE_TYPES, attribution: {{ ...RH.ATTR, prices: RH.PRICE_ATTR }}, has_mml_key: false,
-      heat_units: Object.fromEntries(Object.entries(RH.HEAT_UNITS).map(([k, v]) => [k, v.label])) }};
+      heat_units: Object.fromEntries(Object.entries(RH.HEAT_UNITS).map(([k, v]) => [k, v.label])), heating_systems: RH.HEATING_SYSTEMS }};
     try {{ $("#mmlKey").value = localStorage.getItem(KEY_STORE) || ""; }} catch (_) {{ /* storage unavailable */ }}
     META.has_mml_key = !!mmlKey();
     $("#mmlKey").addEventListener("change", () => {{

@@ -53,6 +53,18 @@ CASES = {
     "dryer_el_only": base({"kind": "annual", "value": 400, "unit": "MWh"}, {"kind": "annual", "value": 150, "unit": "MWh"},
                           d={"use": "kuivuri", "scope": "both"}),
     "all_known": base({"kind": "annual", "value": 100, "unit": "MWh"}, a={"known_heat_mwh": 40}, b={"known_heat_mwh": 40}, c={"known_heat_mwh": 25}),
+    # heating systems
+    "district_annual": base({"kind": "annual", "value": 300, "unit": "MWh", "system": "district"}),
+    "hp_submeter": base({"kind": "annual", "value": 110, "unit": "MWh_el", "system": "heatpump", "cop": 3.1, "el_meter": "m1"},
+                        {"kind": "annual", "value": 260, "unit": "MWh"}),
+    "el_submeter_too_big": base({"kind": "annual", "value": 300, "unit": "MWh_el", "system": "electric"},
+                                {"kind": "annual", "value": 200, "unit": "MWh"}),
+    "el_joint_annual": base({"kind": "none", "system": "electric"}, {"kind": "annual", "value": 420, "unit": "MWh"}),
+    "hp_joint_monthly": base({"kind": "none", "system": "heatpump", "cop": 2.8, "capacity_kw": 90},
+                             {"kind": "monthly", "unit": "MWh", "months": [48, 41, 37, 26, 17, 13, 12, 13, 16, 24, 33, 44]}),
+    "hp_joint_hourly_known": base({"kind": "none", "system": "heatpump", "cop": 3.0},
+                                  {"kind": "hourly", "values": [None if i % 997 == 0 else 14 + 9 * max(0.0, 5 - T[i]) / 10 + (i % 24) * 0.3 for i in range(HOURS)]},
+                                  d={"known_el_mwh": 15}),
 }
 
 JS = """
@@ -81,15 +93,17 @@ def main() -> int:
         reps = []
         for g in ("circuits", "meters"):
             for rp, rj in zip(py["calibration"][g], j["calibration"][g]):
-                for key in ("annual_kwh", "peak_kw", "known_kwh", "hours_over_capacity", "cv_rmse", "warning", "note"):
+                for key in ("annual_kwh", "peak_kw", "known_kwh", "hours_over_capacity", "cv_rmse", "warning", "note", "heating_el_kwh", "kind"):
                     if rp.get(key) != rj.get(key):
                         reps.append(f"{g}.{key}: py={rp.get(key)!r} js={rj.get(key)!r}")
         bb = [(x["id"], x["heat_kwh"], x["electricity_kwh"]) for x in py["buildings"]]
         bj = [(x["id"], x["heat_kwh"], x["electricity_kwh"]) for x in j["buildings"]]
+        if py["totals"].get("heating_el_kwh") != j["totals"].get("heating_el_kwh"):
+            reps.append(f"totals.heating_el_kwh: py={py['totals'].get('heating_el_kwh')} js={j['totals'].get('heating_el_kwh')}")
         ok = dh < 2e-3 and de < 2e-3 and not reps and bb == bj
         bad += not ok
         print(f"{'OK  ' if ok else 'DIFF'} {name:20s} heat {py['totals']['heat_kwh']:>9.0f} el {py['totals']['electricity_kwh']:>8.0f}"
-              f"  max|Δ| {dh:.4f}/{de:.4f}" + ("" if ok else f"\n     {reps} {bb if bb != bj else ''} {bj if bb != bj else ''}"))
+              f" hel {py['totals'].get('heating_el_kwh', 0):>8.0f}  max|Δ| {dh:.4f}/{de:.4f}" + ("" if ok else f"\n     {reps} {bb if bb != bj else ''} {bj if bb != bj else ''}"))
     return 1 if bad else 0
 
 

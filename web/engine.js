@@ -677,23 +677,126 @@
   }
   RH.calibrate = calibrate;
 
+  // ---- several parts at once (an electricity meter that also carries heating electricity); same steps as model.py
+  function solve(G, h) {
+    const n = h.length;
+    const A = G.map((row, i) => row.slice().concat([h[i]]));
+    let scale = 1;
+    for (let i = 0; i < n; i++) scale = Math.max(scale, Math.abs(A[i][i]));
+    for (let c = 0; c < n; c++) {
+      let p = c;
+      for (let r = c + 1; r < n; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
+      if (Math.abs(A[p][c]) <= 1e-12 * scale) return null;
+      const tmp = A[c]; A[c] = A[p]; A[p] = tmp;
+      for (let r = c + 1; r < n; r++) {
+        const f = A[r][c] / A[c][c];
+        for (let k = c; k <= n; k++) A[r][k] -= f * A[c][k];
+      }
+    }
+    const x = new Array(n).fill(0);
+    for (let r = n - 1; r >= 0; r--) {
+      let acc = A[r][n];
+      for (let k = r + 1; k < n; k++) acc -= A[r][k] * x[k];
+      x[r] = acc / A[r][r];
+    }
+    return x;
+  }
+  function dot(a, b) { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; }
+  function nnlsCols(X, y) {
+    const n = X.length;
+    const G = X.map((xi) => X.map((xj) => dot(xi, xj))), h = X.map((xi) => dot(xi, y)), yy = dot(y, y);
+    let bestSse = null, best = new Array(n).fill(0);
+    for (let mask = 1; mask < (1 << n); mask++) {
+      const idx = [...Array(n).keys()].filter((i) => (mask >> i) & 1);
+      if (idx.some((i) => G[i][i] <= 0)) continue;
+      const sol = solve(idx.map((i) => idx.map((j) => G[i][j])), idx.map((i) => h[i]));
+      if (!sol || sol.some((v) => v < 0)) continue;
+      const c = new Array(n).fill(0);
+      idx.forEach((i, k) => { c[i] = sol[k]; });
+      let sse = yy;
+      for (let i = 0; i < n; i++) { sse -= 2 * c[i] * h[i]; for (let j = 0; j < n; j++) sse += c[i] * G[i][j] * c[j]; }
+      if (bestSse === null || sse < bestSse - 1e-9 * Math.max(1, Math.abs(yy))) { bestSse = sse; best = c; }
+    }
+    return best;
+  }
+  const addArr = (arrs) => { const o = new Array(HOURS).fill(0); arrs.forEach((a) => { for (let i = 0; i < HOURS; i++) o[i] += a[i]; }); return o; };
+  function calibrateCols(cols, data, year) {
+    const n = cols.length, model = addArr(cols);
+    const totalModel = model.reduce((a, v) => a + v, 0);
+    const kind = (data && data.kind) || "none";
+    const rep = { kind, model_total_kwh: Math.round(totalModel) };
+    if (kind === "annual") {
+      const target = +data.kwh || 0;
+      if (target <= 0 || totalModel <= 0) { rep.warning = "Vuosikulutus tai mallin tulos on nolla; mallin oletus käytössä."; return [cols.slice(), rep]; }
+      const k = target / totalModel;
+      Object.assign(rep, { scale: r3(k), target_kwh: Math.round(target), note: "Vuosisumma kalibroitu; lämmityssähkön ja muun sähkön suhde tulee mallista." });
+      return [cols.map((c) => c.map((v) => v * k)), rep];
+    }
+    if (kind === "monthly") {
+      const mvals = (data.kwh_months || []).concat(new Array(12).fill(null)).slice(0, 12).map((v) => (v == null || v === "" ? null : +v));
+      const idx = mvals.map((v, i) => (v == null ? -1 : i)).filter((i) => i >= 0);
+      if (idx.length < n + 1) { rep.warning = `Kuukausiarvoja on alle ${n + 1}; mallin oletus käytössä.`; return [cols.slice(), rep]; }
+      const Xm = cols.map((c) => monthlySum(c, year));
+      const coef = nnlsCols(Xm.map((x) => idx.map((i) => x[i])), idx.map((i) => mvals[i]));
+      const fit = [...Array(12)].map((_, m) => coef.reduce((s, c, j) => s + c * Xm[j][m], 0));
+      Object.assign(rep, { coef: coef.map(r3), months_used: idx.length, limit: 0.15,
+        cv_rmse: r3(cvRmse(idx.map((i) => mvals[i]), idx.map((i) => fit[i]), n)),
+        target_kwh: Math.round(idx.reduce((s, i) => s + mvals[i], 0)) });
+      if (idx.length < 12) rep.note = `${12 - idx.length} kuukautta täydennetty sovitteella.`;
+      return [cols.map((c, j) => c.map((v) => coef[j] * v)), rep];
+    }
+    if (kind === "hourly") {
+      const vals = data.values || [];
+      if (vals.length !== HOURS) { rep.warning = "Tuntisarjan pituus ei ole 8 760; mallin oletus käytössä."; return [cols.slice(), rep]; }
+      const ok = []; vals.forEach((v, i) => { if (v != null) ok.push(i); });
+      if (ok.length < 24 * 14) { rep.warning = "Mitattuja tunteja on alle kaksi viikkoa; mallin oletus käytössä."; return [cols.slice(), rep]; }
+      const coef = nnlsCols(cols.map((c) => ok.map((i) => c[i])), ok.map((i) => vals[i]));
+      const parts = cols.map((c, j) => c.map((v) => coef[j] * v)), fit = addArr(parts);
+      const out = fit.map((f, i) => (vals[i] != null ? +vals[i] : f));
+      const comps = parts.map((pj, j) => out.map((o, i) => o * (fit[i] > 0 ? pj[i] / fit[i] : model[i] > 0 ? cols[j][i] / model[i] : 1 / n)));
+      const filled = HOURS - ok.length;
+      Object.assign(rep, { coef: coef.map(r3), hours_measured: ok.length, hours_filled: filled, limit: 0.30,
+        cv_rmse: r3(cvRmse(ok.map((i) => +vals[i]), ok.map((i) => fit[i]), n)),
+        target_kwh: Math.round(out.reduce((s, v) => s + v, 0)),
+        note: "Mitatut tunnit käytetään sellaisenaan" + (filled ? "; puuttuvat tunnit täydennetty sovitteella." : ".") });
+      return [comps, rep];
+    }
+    rep.note = "Ei kulutustietoa: tulos on mallin oletus, ei tilan kulutus.";
+    return [cols.slice(), rep];
+  }
+  RH.calibrateCols = calibrateCols;
+
   RH.HEAT_UNITS = {
     kWh: { label: "kWh lämpöä", k: 1, fuel: false }, MWh: { label: "MWh lämpöä", k: 1000, fuel: false },
     "i-m3": { label: "i-m³ haketta", k: 800, fuel: true }, MWh_pa: { label: "MWh polttoainetta", k: 1000, fuel: true },
     t_pelletti: { label: "t pellettiä", k: 4700, fuel: true }, l_oljy: { label: "l kevyttä polttoöljyä", k: 10, fuel: true },
+    // electric heating: electricity used for heating (sub-meter); heat = electricity × COP
+    kWh_el: { label: "kWh sähköä lämmitykseen", k: 1, fuel: false, el: true }, MWh_el: { label: "MWh sähköä lämmitykseen", k: 1000, fuel: false, el: true },
   };
-  RH.heatToKwh = function (value, unit, eff = 0.85, chip = 0.8) {
+  RH.heatToKwh = function (value, unit, eff = 0.85, chip = 0.8, cop = 1) {
     const u = RH.HEAT_UNITS[unit] || RH.HEAT_UNITS.kWh;
     const k = unit === "i-m3" ? chip * 1000 : u.k;
+    if (u.el) return +value * k * cop;
     return +value * k * (u.fuel ? eff : 1);
   };
+  RH.HEATING_SYSTEMS = { fuel: "Kattila (hake, pelletti, öljy)", district: "Kaukolämpö", electric: "Sähkölämmitys", heatpump: "Lämpöpumppu" };
+  function heatingCop(d) {
+    const sys = (d && d.system) || "fuel";
+    if (sys === "heatpump") return Math.max(1, +(d && d.cop) || 3);
+    if (sys === "electric") return 1;
+    return null;
+  }
+  RH.heatingCop = heatingCop;
   RH.prepare = function (project) {
     const num = (v) => (v == null || v === "" ? null : +v);
     const circuits = (project.circuits || []).map((c) => {
       const d = { ...(c.data || {}) }, eff = +d.efficiency || 0.85, chip = +d.chip_density || 0.8, unit = d.unit || "kWh";
-      if (d.kind === "annual" && num(d.value) != null) d.kwh = RH.heatToKwh(d.value, unit, eff, chip);
+      const cop = heatingCop(d) || 1;
+      if (d.kind === "annual" && num(d.value) != null) d.kwh = RH.heatToKwh(d.value, unit, eff, chip, cop);
       if (num(d.base_share_pct) != null) d.base_share = +d.base_share_pct / 100;
-      if (d.kind === "monthly") d.kwh_months = (d.months || []).map((v) => (num(v) == null ? null : RH.heatToKwh(v, unit, eff, chip)));
+      if (d.kind === "monthly") d.kwh_months = (d.months || []).map((v) => (num(v) == null ? null : RH.heatToKwh(v, unit, eff, chip, cop)));
+      // an hourly sub-meter file of heating electricity (kWh/h): heat = electricity × COP
+      if (d.kind === "hourly" && (RH.HEAT_UNITS[unit] || {}).el && d.values) d.values = d.values.map((v) => (v == null ? null : +v * cop));
       return { ...c, data: d };
     });
     const meters = (project.meters || []).map((m) => {
@@ -713,14 +816,17 @@
   };
 
   const mwh = (kwh) => (kwh / 1000).toFixed(1).replace(".", ",");
-  function subtractKnown(data, K, year) {
+  function subtractKnown(data, K, year, what) {
     const Ksum = K.reduce((a, v) => a + v, 0);
     if (!data || Ksum <= 0) return [data, null];
     const d = { ...data };
     if (data.kind === "annual") {
       const rest = (+data.kwh || 0) - Ksum;
       d.kwh = rest;
-      if (rest <= 0) return [d, `Tunnettujen rakennusten kulutus (${mwh(Ksum)} MWh) on vähintään piirin kulutus (${mwh(+data.kwh || 0)} MWh); muille ei jää lämpöä.`];
+      if (rest <= 0) {
+        if (what) return [d, `${what[0].toUpperCase()}${what.slice(1)} (${mwh(Ksum)} MWh) on vähintään mittarin kulutus (${mwh(+data.kwh || 0)} MWh); muulle sähkölle ei jää mitään.`];
+        return [d, `Tunnettujen rakennusten kulutus (${mwh(Ksum)} MWh) on vähintään piirin kulutus (${mwh(+data.kwh || 0)} MWh); muille ei jää lämpöä.`];
+      }
       return [d, null];
     }
     if (data.kind === "monthly") {
@@ -732,7 +838,7 @@
         if (r < 0) { neg++; r = 0; }
         return r;
       });
-      return [d, neg ? `${neg} kuukautena tunnettujen rakennusten osuus ylitti mitatun; erotus rajattiin nollaan.` : null];
+      return [d, neg ? `${neg} kuukautena ${what || "tunnettujen rakennusten osuus"} ylitti mitatun; erotus rajattiin nollaan.` : null];
     }
     if (data.kind === "hourly") {
       let neg = 0;
@@ -742,7 +848,7 @@
         if (r < 0) { neg++; r = 0; }
         return r;
       });
-      return [d, neg ? `${neg} tuntina tunnettujen rakennusten osuus ylitti mitatun; erotus rajattiin nollaan.` : null];
+      return [d, neg ? `${neg} tuntina ${what || "tunnettujen rakennusten osuus"} ylitti mitatun; erotus rajattiin nollaan.` : null];
     }
     return [d, null];
   }
@@ -797,6 +903,77 @@
     return [series, per, rep];
   }
 
+  const shareOf = (part, whole, n) => part.map((v, i) => (whole[i] > 0 ? v / whole[i] : 1 / n));
+  function groupJoint(members, parts, data, year, defs) {
+    const per = {};
+    members.forEach((b) => { per[b.id] = new Array(HOURS).fill(0); });
+    const known = members.filter((b) => (+b.known_el_kwh || 0) > 0), rest = members.filter((b) => !known.includes(b));
+    const K = new Array(HOURS).fill(0);
+    for (const b of known) {
+      const sb = scaled(parts[b.id].el_w.map((v, i) => v + parts[b.id].el_b[i]), +b.known_el_kwh);
+      per[b.id] = sb;
+      for (let i = 0; i < HOURS; i++) K[i] += sb[i];
+    }
+    const [d, warn] = subtractKnown(data, K, year);
+    const Wv = addArr(rest.map((b) => parts[b.id].el_w)), Be = addArr(rest.map((b) => parts[b.id].el_b));
+    for (const df of defs) {
+      df.W = addArr(df.members.map((b) => parts[b.id].heat_w)).map((v) => v / df.cop);
+      df.B = addArr(df.members.map((b) => parts[b.id].heat_b)).map((v) => v / df.cop);
+    }
+    const Wh = addArr(defs.map((df) => df.W)), Bh = addArr(defs.map((df) => df.B));
+    const BeBh = Be.map((v, i) => v + Bh[i]);
+    const cols = [Wv, BeBh, Wh];
+    let comps, rep;
+    if (d && d.kind === "annual" && (+d.kwh || 0) <= 0) {
+      comps = [0, 1, 2].map(() => new Array(HOURS).fill(0));
+      rep = { kind: "annual", model_total_kwh: Math.round(addArr(cols).reduce((a, v) => a + v, 0)) };
+    } else {
+      [comps, rep] = calibrateCols(cols, d, year);
+      comps = comps.map((c) => c.map((v) => Math.max(0, v)));
+    }
+    if (warn) rep.warning = warn;
+    const baseEl = rest.length ? comps[1].map((v, i) => v * (BeBh[i] > 0 ? Be[i] / BeBh[i] : 1)) : new Array(HOURS).fill(0);
+    const Rel = comps[0].map((v, i) => v + baseEl[i]);
+    const Rhel = comps[2].map((v, i) => v + (comps[1][i] - baseEl[i]));
+    const modelEl = Wv.map((v, i) => v + Be[i]);
+    for (const b of rest) {
+      const sh = shareOf(parts[b.id].el_w.map((v, i) => v + parts[b.id].el_b[i]), modelEl, rest.length);
+      per[b.id] = Rel.map((v, i) => v * sh[i]);
+    }
+    const modelH = Wh.map((v, i) => v + Bh[i]);
+    for (const df of defs) {
+      const sh = shareOf(df.W.map((v, i) => v + df.B[i]), modelH, defs.length);
+      df.hel = Rhel.map((v, i) => v * sh[i]);
+      df.heat = df.hel.map((v) => v * df.cop);
+      const heatModel = addArr(df.members.map((b) => parts[b.id].heat_w.map((v, i) => v + parts[b.id].heat_b[i])));
+      df.per = {};
+      for (const b of df.members) {
+        const sb = shareOf(parts[b.id].heat_w.map((v, i) => v + parts[b.id].heat_b[i]), heatModel, df.members.length);
+        df.per[b.id] = df.heat.map((v, i) => v * sb[i]);
+      }
+    }
+    const helTotal = Rhel.reduce((a, v) => a + v, 0);
+    const note = `Lämmityssähkö ${mwh(helTotal)} MWh erotettu mittarin kulutuksesta (${defs.map((df) => df.name).join(", ")}).`;
+    rep.note = note + (rep.note ? " " + rep.note : "");
+    rep.heating_el_kwh = Math.round(helTotal);
+    if (known.length) {
+      const Ksum = K.reduce((a, v) => a + v, 0);
+      rep.note = `Tunnettu kulutus ${mwh(Ksum)} MWh: ${known.map((b) => b.name || b.id).join(", ")}. ` + rep.note;
+      rep.known_kwh = Math.round(Ksum);
+    }
+    return [K.map((v, i) => v + Rel[i]), per, rep];
+  }
+  function capacityCheck(rep, series, cap) {
+    if (cap == null || cap === "" || !(+cap > 0)) return;
+    const over = series.filter((v) => v > +cap).length;
+    const peak = series.reduce((a, v) => Math.max(a, v), 0);
+    rep.capacity_kw = +cap; rep.hours_over_capacity = over;
+    if (over) {
+      const msg = `Huipputeho ${Math.round(peak)} kW ylittää kattilan tehon ${Math.round(+cap)} kW ${over} tuntina. Tarkista profiili (esim. broilerierien ajoitus) tai kattilan teho.`;
+      rep.warning = rep.warning ? rep.warning + " " + msg : msg;
+    }
+  }
+
   RH.run = function (project) {
     const year = +project.year;
     const t = project.temperature || [];
@@ -807,32 +984,69 @@
     if (!blds.length) throw new HttpError("Valitse vähintään yksi rakennus.", 422);
     const parts = {};
     blds.forEach((b) => { parts[b.id] = buildingSeries(b, t, year); });
-    const heat = new Float64Array(HOURS), el = new Float64Array(HOURS);
+    const heat = new Float64Array(HOURS), el = new Float64Array(HOURS), hel = new Float64Array(HOURS);
     const per = {};
     blds.forEach((b) => { per[b.id] = { heat: new Float64Array(HOURS), el: new Float64Array(HOURS) }; });
     const reports = { circuits: [], meters: [] };
-    const cfg = [["circuits", "heat_w", "heat_b", "heat", heat, "circuit", ["both", "heat"], "known_heat_kwh"],
-      ["meters", "el_w", "el_b", "el", el, "meter", ["both", "el"], "known_el_kwh"]];
-    for (const [grpKey, pw, pb, outKey, tot, gid, scopes, knownKey] of cfg) {
-      for (const g of project[grpKey] || []) {
-        const members = blds.filter((b) => b[gid] === g.id && scopes.includes(b.scope || "both"));
-        if (!members.length) continue;
-        const [series, pr, rep] = group(members, parts, pw, pb, knownKey, g.data, year);
-        for (let i = 0; i < HOURS; i++) tot[i] += series[i];
-        for (const id in pr) for (let i = 0; i < HOURS; i++) per[id][outKey][i] += pr[id][i];
-        const peak = series.reduce((a, v) => Math.max(a, v), 0);
-        Object.assign(rep, { id: g.id, name: g.name || g.id, members: members.map((b) => b.id),
-          annual_kwh: Math.round(series.reduce((a, v) => a + v, 0)), peak_kw: Math.round(peak * 10) / 10 });
-        const cap = g.data && g.data.capacity_kw;
-        if (cap != null && cap !== "" && +cap > 0) {
-          const over = series.filter((v) => v > +cap).length;
-          rep.capacity_kw = +cap; rep.hours_over_capacity = over;
-          if (over) {
-            const msg = `Huipputeho ${Math.round(peak)} kW ylittää kattilan tehon ${Math.round(+cap)} kW ${over} tuntina. Tarkista profiili (esim. broilerierien ajoitus) tai kattilan teho.`;
-            rep.warning = rep.warning ? rep.warning + " " + msg : msg;
-          }
-        }
-        reports[grpKey].push(rep);
+    const meters = project.meters || [], mids = meters.map((m) => m.id), meterById = {};
+    meters.forEach((m) => { meterById[m.id] = m; });
+    const helKnown = {}, helNames = {}, deferred = {};
+    mids.forEach((m) => { helKnown[m] = new Array(HOURS).fill(0); helNames[m] = []; deferred[m] = []; });
+    const hasData = (g) => !!g && (((g.data || {}).kind) || "none") !== "none";
+    const sumA = (a) => a.reduce((s, v) => s + v, 0), peakA = (a) => a.reduce((s, v) => Math.max(s, v), 0);
+
+    for (const g of project.circuits || []) {
+      const members = blds.filter((b) => b.circuit === g.id && ["both", "heat"].includes(b.scope || "both"));
+      if (!members.length) continue;
+      const d = g.data || {}, cop = heatingCop(d);
+      const mid = mids.includes(d.el_meter) ? d.el_meter : (mids.length ? mids[0] : null);
+      const base = { id: g.id, name: g.name || g.id, members: members.map((b) => b.id), system: d.system || "fuel" };
+      if (cop && mid && (d.kind || "none") === "none" && hasData(meterById[mid])) {
+        const rep = { ...base, kind: "from_meter", cop, el_meter: mid };
+        deferred[mid].push({ g, name: base.name, members, cop, rep });
+        reports.circuits.push(rep);
+        continue;
+      }
+      const [series, pr, rep] = group(members, parts, "heat_w", "heat_b", "known_heat_kwh", d, year);
+      for (let i = 0; i < HOURS; i++) heat[i] += series[i];
+      for (const id in pr) for (let i = 0; i < HOURS; i++) per[id].heat[i] += pr[id][i];
+      Object.assign(rep, base, { annual_kwh: Math.round(sumA(series)), peak_kw: Math.round(peakA(series) * 10) / 10 });
+      if (cop) {
+        const h = series.map((v) => v / cop);
+        for (let i = 0; i < HOURS; i++) hel[i] += h[i];
+        Object.assign(rep, { cop, heating_el_kwh: Math.round(sumA(h)), el_meter: mid });
+        if (mid) { for (let i = 0; i < HOURS; i++) helKnown[mid][i] += h[i]; helNames[mid].push(base.name); }
+      }
+      capacityCheck(rep, series, d.capacity_kw);
+      reports.circuits.push(rep);
+    }
+
+    for (const g of meters) {
+      const members = blds.filter((b) => b.meter === g.id && ["both", "el"].includes(b.scope || "both"));
+      const defs = deferred[g.id] || [];
+      if (!members.length && !defs.length) continue;
+      let data = g.data, hwarn = null;
+      const Hk = helKnown[g.id], HkSum = sumA(Hk);
+      if (HkSum > 0) [data, hwarn] = subtractKnown(data, Hk, year, "lämmityssähkö");
+      const [series, pr, rep] = defs.length ? groupJoint(members, parts, data, year, defs) : group(members, parts, "el_w", "el_b", "known_el_kwh", data, year);
+      if (HkSum > 0) {
+        const msg = `Lämmityssähkö ${mwh(HkSum)} MWh vähennetty mittarin tiedoista (${helNames[g.id].join(", ")}).`;
+        rep.note = msg + (rep.note ? " " + rep.note : "");
+        rep.heating_el_kwh = Math.round(HkSum + (+rep.heating_el_kwh || 0));
+        if (hwarn) rep.warning = rep.warning ? rep.warning + " " + hwarn : hwarn;
+      }
+      for (let i = 0; i < HOURS; i++) el[i] += series[i];
+      for (const id in pr) for (let i = 0; i < HOURS; i++) per[id].el[i] += pr[id][i];
+      Object.assign(rep, { id: g.id, name: g.name || g.id, members: members.map((b) => b.id),
+        annual_kwh: Math.round(sumA(series)), peak_kw: Math.round(peakA(series) * 10) / 10 });
+      reports.meters.push(rep);
+      for (const df of defs) {
+        for (let i = 0; i < HOURS; i++) { heat[i] += df.heat[i]; hel[i] += df.hel[i]; }
+        for (const id in df.per) for (let i = 0; i < HOURS; i++) per[id].heat[i] += df.per[id][i];
+        Object.assign(df.rep, { annual_kwh: Math.round(sumA(df.heat)), peak_kw: Math.round(peakA(df.heat) * 10) / 10,
+          heating_el_kwh: Math.round(sumA(df.hel)),
+          note: `Lämpö = lämmityssähkö ${mwh(sumA(df.hel))} MWh × ${df.cop.toFixed(1)}, erotettu mittarin ${g.name || g.id} kulutuksesta. Muoto tulee mallista.` });
+        capacityCheck(df.rep, df.heat, (df.g.data || {}).capacity_kw);
       }
     }
     const cal = calendar(year), sum = (a) => a.reduce((s, v) => s + v, 0), mx = (a) => a.reduce((s, v) => Math.max(s, v), 0);
@@ -846,7 +1060,7 @@
         electricity: monthlySum(el, year).map(Math.round), heat: monthlySum(heat, year).map(Math.round),
         temperature: [...Array(12)].map((_, m) => { let s = 0, n = 0; for (let i = 0; i < HOURS; i++) if (cal.month[i] === m + 1) { s += t[i]; n++; } return r1(s / n); }),
       },
-      totals: { electricity_kwh: Math.round(sum(el)), heat_kwh: Math.round(sum(heat)), electricity_peak_kw: r1(mx(el)), heat_peak_kw: r1(mx(heat)) },
+      totals: { electricity_kwh: Math.round(sum(el)), heat_kwh: Math.round(sum(heat)), electricity_peak_kw: r1(mx(el)), heat_peak_kw: r1(mx(heat)), heating_el_kwh: Math.round(sum(hel)) },
       buildings: blds.map((b) => ({ id: b.id, electricity_kwh: Math.round(sum(per[b.id].el)), heat_kwh: Math.round(sum(per[b.id].heat)), heat_peak_kw: r1(mx(per[b.id].heat)) })),
       calibration: reports,
     };

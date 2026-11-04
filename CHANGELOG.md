@@ -1,5 +1,17 @@
 # Muutokset
 
+## 0.6.0 – 2026-11-04
+
+Energianeuvojan näkökulmasta tehdyn käyttöliittymäarvion (4.11.2026) korjaukset.
+
+- **Lämmitystapa** lämmitysjärjestelmälle: kattila, kaukolämpö, sähkölämmitys tai lämpöpumppu (SCOP). Lämmityssähkö erotetaan sähkömittarin kulutuksesta, joko alamittarin lukemasta tai sovittamalla mittarin tieto lämmitys-, ilmanvaihto- ja perusosaan. Viennin sähkösarake on muu sähkö, ettei lämmitystä lasketa laskurissa kahteen kertaan. Nykyinen lämmityssähkö raportoidaan erikseen.
+- **Pysyvyyskäyrät** lämpö- ja sähköteholle; lämmitysteho viivana ja ylittävät tunnit.
+- **kWh/m²** rakennuksittain ja poikkeavan arvon merkintä.
+- **Uusi projekti** -painike tyhjentää luonnoksen.
+- Korjattu: tarkistuslistan "Kulutustiedot annettu" ennen valintoja; negatiivinen ja nolla-ala; käsin lisätyn rakennuksen oletusala ja nimi; vuoden vaihdon jälkeinen tuntitiedostokortti; ilmoitukset pinoutuvat eivätkä peitä tuloksia; rakennus poistuu laskennasta vain valintaruudusta; *Laske uudelleen* ei enää jää reagoimatta, kun kentän muokkaus päättyy painikkeen klikkaukseen.
+- Saavutettavuus: yksikkövalinnan ja painikeryhmien nimet ja tila (axe-core: ei WCAG A/AA -rikkeitä).
+- Käsite *lämmityspiiri* on käyttöliittymässä *lämmitysjärjestelmä*.
+
 ## 0.5.0 – 2026-11-01 (ensimmäinen julkinen versio)
 
 - Julkaisumetatiedot: `CITATION.cff`, `.zenodo.json`, tekijät ORCID-tunnisteineen; lisenssin haltijana Seinäjoen ammattikorkeakoulu.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rakennushaku"
-version = "0.5.0"
+version = "0.6.0"
 description = "Tilan lämmitettävät rakennukset ja tunnittainen energiaprofiili Maatilan hybridienergialaskuriin"
 readme = "README.md"
 requires-python = ">=3.10"

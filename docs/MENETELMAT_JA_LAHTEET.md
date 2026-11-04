@@ -1,6 +1,6 @@
 # Rakennushaku – menetelmät ja lähteet
 
-**Versio:** 0.5.0 · **Päivitetty:** 3.11.2026  
+**Versio:** 0.6.0 · **Päivitetty:** 4.11.2026  
 **Tekijät:** Miiro Jääskeläinen ja Suvi Karirinne, Seinäjoen ammattikorkeakoulu (SEAMK), Maatalous ja energia -tutkimusryhmä  
 **Hanke:** EIP CHP Energiaälykäs eteläpohjalainen maatila (EU:n osarahoittama)  
 **Liittyy:** Maatilan hybridienergialaskuri, versio 0.9.3 [18]
@@ -69,6 +69,11 @@ Kesäaikaa käyttävä paikallinen aika muunnetaan UTC:ksi EU:n kesäaikasäänn
 | t pellettiä | 4,7 MWh/t | Yleinen likiarvo; ei tarkistettu lähteestä tässä versiossa. Tarkista [14] tai toimittajan tuoteseloste. |
 | l kevyttä polttoöljyä | 10 kWh/l | Yleinen likiarvo; ei tarkistettu lähteestä tässä versiossa. Tarkista [13], [14]. |
 | Kattilan hyötysuhde | 0,85 (muokattava) | Laskurin oletus (C26) [18] |
+| kWh tai MWh sähköä lämmitykseen | lämpö = sähkö × COP | Suora sähkölämmitys COP 1; lämpöpumppu käyttäjän SCOP, oletus 3,0 (oma oletus) |
+
+**Lämmitystapa.** Jokaiselle lämmitysjärjestelmälle valitaan lämmitystapa: kattila (hake, pelletti, öljy), kaukolämpö, sähkölämmitys tai lämpöpumppu. Kaukolämpö annetaan lämpönä (kWh tai MWh laskulta). Sähkölämmityksen ja lämpöpumpun lämmityssähkö kulkee valitun sähkömittarin kautta, joten se käsitellään luvussa 8, ettei sitä lasketa kahteen kertaan.
+
+- **SCOP on vakio** koko vuoden (oma yksinkertaistus). Todellisuudessa ilma-vesilämpöpumpun COP laskee pakkasella, joten lämmityssähkön talvihuippu on mallissa liian pieni ja lämmön huippu lämmityssähköstä johdettuna liian suuri tai pieni sen mukaan, mistä tieto tulee. Maalämpöpumpulle vakio on parempi oletus.
 
 ## 7. Rakennusmalli
 
@@ -112,7 +117,7 @@ Rakenne on lämmitystarveluvun (astetunnit) ja energiasignatuurin yhdistelmä. K
 
 ## 8. Kalibrointi tilan kulutustietoon
 
-Kalibrointi tehdään lämmityspiireittäin ja sähkömittareittain, koska kulutustieto tulee laskuilta ja mittareilta, ei rakennuksittain.
+Kalibrointi tehdään lämmitysjärjestelmittäin (lämmityspiireittäin) ja sähkömittareittain, koska kulutustieto tulee laskuilta ja mittareilta, ei rakennuksittain.
 
 | Kulutustieto | Menetelmä | Mitä tieto ratkaisee |
 |---|---|---|
@@ -127,6 +132,11 @@ Kalibrointi tehdään lämmityspiireittäin ja sähkömittareittain, koska kulut
 - **Jako rakennuksille.** Piirin tunnittainen kokonaismäärä jaetaan rakennuksille niiden mallinnettujen osuuksien mukaan. Rakennuskohtaiset luvut ovat siksi arvioita, paitsi tunnetun kulutuksen rakennuksille.
 - **Kattilan teho (optio).** Kun kattilan teho annetaan, piirin tunnittaista lämpötehoa verrataan siihen ja ylittävät tunnit raportoidaan. Laskuri raportoi vastaavan tilanteen lämmitysvajeena (K13–L13) [18].
 
+**Sähkölämmitys ja lämpöpumppu.** Laskuri tuottaa lämmöntarpeen (sarake F) omista lähteistään ja laskee niiden sähkön itse [18]. Siksi viennin sähkösarake E on *muu sähkö*: nykyinen lämmityssähkö ei saa olla siinä, tai se laskettaisiin kahteen kertaan. Sovellus raportoi nykyisen lämmityssähkön erikseen.
+
+- **Lämmityssähkö mitataan erikseen** (alamittari tai lämpöpumpun oma mittari, vuosi, kuukaudet tai tunnit): lämpö = lämmityssähkö × COP, ja lämmityssähkö vähennetään sähkömittarin tiedosta kuten tunnetun rakennuksen kulutus. Lämpömittarin lukema voidaan antaa myös suoraan lämpönä.
+- **Lämmityssähköä ei mitata erikseen:** sähkömittarin tieto sovitetaan kolmella osalla yhtä aikaa: E ≈ c₁·ilmanvaihto + c₂·(perussähkö + lämmön perusosa / COP) + c₃·lämmön sääosa / COP, c ≥ 0. Ratkaisu haetaan kokeilemalla kaikki sarakeyhdistelmät ja valitsemalla pienin neliösumma ei-negatiivisista ratkaisuista [21]. Lämmitysosuus kerrotaan COP:llä lämmöksi. Kuukausi- tai tuntitiedolla lämmityksen osuus erottuu, koska se on talvipainotteinen ja ilmanvaihto kesäpainotteinen. **Pelkällä vuosisummalla** osuus tulee mallin oletusparametreista eikä ole luotettava; kuukausitiedot ovat tällöin suositeltavia.
+
 ## 9. Pörssihinnat
 
 - **Lähde.** Hinnat haetaan Sähkötin-palvelusta, joka välittää Nord Poolin vuorokausimarkkinan FI-alueen hinnat yksikössä €/MWh ilman arvonlisäveroa ja UTC-aikaleimoilla [9].
@@ -134,19 +144,27 @@ Kalibrointi tehdään lämmityspiireittäin ja sähkömittareittain, koska kulut
 - **Tarkistus.** Vuoden 2025 sarjassa on 459 negatiivista tuntia, mikä vastaa laskurin omaa huomautusta [18]. Vuosi 2024 sisältää 8 784 tuntia, joista karkauspäivä poistetaan.
 - **Käyttöehdot.** Sähkötin ilmoittaa ilmaisen rajapinnan olevan ei-kaupalliseen käyttöön ja Nord Poolin omistavan hintadatan [9]. Sovellus ei siksi sisällä hintoja, vaan käyttäjä hakee ne omaan tarkasteluunsa. Selaimesta suoraan haettavissa olevista lähteistä vain Sähkötin salli kutsut (CORS); Elering ja Energy-Charts eivät sallineet (todettu 31.10.2026).
 
-## 10. Viennit laskuriin
+## 10. Tulokset ja viennit laskuriin
+
+**Tulosnäkymä.**
+
+- **Pysyvyyskäyrä** lämpö- ja sähköteholle: vuoden tunnit järjestettyinä suurimmasta tehosta pienimpään. Kattiloiden, lämpöpumppujen ja CHP:n mitoitus tehdään siitä: esimerkiksi peruskuormalaite mitoitetaan tehoon, joka ylittyy tuhansia tunteja vuodessa, ja huippu katetaan muilla. Annettu lämmitysteho piirretään viivana, ja ylittävien tuntien määrä kerrotaan.
+- **Ominaiskulutus kWh/m²** rakennuksittain kertoo, onko kalibrointi jakanut kulutuksen uskottavasti. Arvot alle 20 tai yli 800 kWh/m² merkitään poikkeaviksi (oma karkea raja; tarkoitus on huomata virheellinen ala tai käyttötyyppi, ei arvioida rakennusta).
+- **Vanhentunut tulos.** Kun valintoja muutetaan, edellinen tulos jää näkyviin himmennettynä, eikä sitä voi viedä ennen uudelleenlaskentaa.
+
+**Viennit.**
 
 | Tiedosto | Sarakkeet | Laskurissa |
 |---|---|---|
 | `oma_kulutusdata_<vuosi>.csv` | Tunti, Kk, Pv, Klo, Sähkö kWh/h, Lämpö kWh/h, Ulkolämpötila °C, (Pörssihinta €/MWh) | E–F → *Oma kulutusdata* E2, D4 = Oma data; H → *Hintahistoria*, vuoden sarake |
 | `hintahistoria_2023-2026.csv` | Tunti, Aika (EET), 2023, 2024, 2025, 2026 | C–F → *Hintahistoria* C2 |
 
-CSV-tiedostoissa on puolipiste-erotin, desimaalipilkku ja UTF-8 BOM suomenkielistä Exceliä varten. Laskurin oma aurinkosähkö- ja lämpöpumppulaskenta käyttää vielä laskurin esimerkkivuotta [18]. Ulkolämpötila viedään sarakkeeksi G myöhempää käyttöä varten.
+Sähkösarake E on muu sähkö kuin lämmitys (luku 8). CSV-tiedostoissa on puolipiste-erotin, desimaalipilkku ja UTF-8 BOM suomenkielistä Exceliä varten. Laskurin oma aurinkosähkö- ja lämpöpumppulaskenta käyttää vielä laskurin esimerkkivuotta [18]. Ulkolämpötila viedään sarakkeeksi G myöhempää käyttöä varten.
 
 ## 11. Toteutus ja testaus
 
-- **Kaksi toteutusta.** Sovellus on Python-palvelin (FastAPI) ja yhden tiedoston selainversio. Selainversion laskentamoottori (`web/engine.js`) antaa samat tulokset kuin Python-malli; `web/check_equivalence.py` vertaa niitä kahdeksassa skenaariossa (ero 0,000 kWh/h).
-- **Automaattiset testit.** 37 testiä kattavat aikakannan, kesäajan, tiedostojen jäsennyksen, rajapintavastausten käsittelyn, kalibrointitavat, optiot, vientimuodot ja 3D-näkymän tiedostot (`pytest`). GitHub Actions ajaa testit ja vastaavuustarkistuksen jokaisesta muutoksesta.
+- **Kaksi toteutusta.** Sovellus on Python-palvelin (FastAPI) ja yhden tiedoston selainversio. Selainversion laskentamoottori (`web/engine.js`) antaa samat tulokset kuin Python-malli; `web/check_equivalence.py` vertaa niitä 14 skenaariossa, myös lämmitystavat (ero 0,000 kWh/h).
+- **Automaattiset testit.** 41 testiä kattavat aikakannan, kesäajan, tiedostojen jäsennyksen, rajapintavastausten käsittelyn, kalibrointitavat, lämmitystavat, optiot, vientimuodot ja 3D-näkymän tiedostot (`pytest`). GitHub Actions ajaa testit ja vastaavuustarkistuksen jokaisesta muutoksesta.
 - **Live-testit 31.10.2026.** MML (osoitehaku, kiinteistöhaku pisteellä ja tunnuksella, rakennukset, ortokuva), FMI (asemat, vuoden 2025 tuntisarja), Open-Meteo ja Sähkötin (2023–2026) testattiin oikeilla rajapinnoilla.
 - **Kartta:** Leaflet 1.9.4 [24].
 - **3D-näkymä:** MapLibre GL JS 5.24.0 [25] oletuksena, CesiumJS 1.146.0 [26] valinnaisena. Molemmat testattiin selaimessa (ohjelmistopohjainen WebGL): omalta levyltä avattu tiedosto, HTTP:llä jaettu tiedosto ja Python-palvelin.
@@ -175,6 +193,21 @@ CSV-tiedostoissa on puolipiste-erotin, desimaalipilkku ja UTF-8 BOM suomenkielis
 | Huipputehoa ei verrattu kattilaan | Liian piikikäs profiili jäi huomaamatta | Optio *kattilan teho* ja varoitus |
 | Python- ja selainversiossa oli eri sääntö rakennuksen kuulumiselle kiinteistölle | Eri tulos samalla tilalla | Yhteinen painopistesääntö |
 
+**Korjattu versiossa 0.6.0 (energianeuvojan näkökulmasta tehty käyttöliittymäarvio 4.11.2026)**
+
+| Havainto | Korjaus |
+|---|---|
+| Lämpöpiiri oletti polttoaineen; sähkölämmitteinen rakennus saattoi tulla lasketuksi kahteen kertaan | Lämmitystapa (kattila, kaukolämpö, sähkö, lämpöpumppu); lämmityssähkö erotetaan mittarista (luku 8) |
+| Mitoitukseen tarvittava tehojakauma selvisi vain CSV:stä | Pysyvyyskäyrät ja lämmitystehon viiva (luku 10) |
+| Kalibroinnin jakoa rakennuksille ei voinut arvioida | kWh/m² rakennusriville ja poikkeavan arvon merkintä |
+| Tarkistuslista näytti "Kulutustiedot annettu" ennen kuin mitään oli valittu | Tieto tarkistetaan vain käytössä olevista järjestelmistä ja mittareista |
+| Negatiivinen tai nolla-ala hyväksyttiin; käsin lisätyn rakennuksen 100 m²:n oletus jäi huomaamatta | Ala tarkistetaan; oletusala merkitään korttiin ja tarkistuslistaan |
+| Tulokset katosivat mistä tahansa muutoksesta | Vanhentunut tulos jää näkyviin himmennettynä |
+| Ilmoitukset korvasivat toisensa ja peittivät tuloksia | Ilmoitukset pinoutuvat vasempaan alakulmaan |
+| Edellisen asiakkaan luonnos palautui automaattisesti | *Uusi projekti* tyhjentää luonnoksen |
+| Rakennuksen otsikon klikkaus poisti sen laskennasta | Valinta vain valintaruudusta (kartalla klikkaus vaihtaa valinnan) |
+| Yksikkövalinnalla ei ollut nimeä ruudunlukijalle (WCAG, kriittinen) | Nimet ja painikeryhmien tila; axe-core: ei WCAG A/AA -rikkeitä |
+
 **Avoimet, vakavuusjärjestyksessä**
 
 1. **Oletusparametreja ei ole validoitu** (suuri). H, ΔT_sis, q_perus, sähkön ominaiskulutukset ja profiilit ovat omia oletuksia. Ilman kulutustietoa tulos on vain suuntaa antava. Suositus: kalibroi oletukset 2–3 pilottitilan mitatulla tuntilämmöllä ja -sähköllä, ja johda eläinten lämmöntuotto CIGR:n yhtälöistä [19].
@@ -187,7 +220,8 @@ CSV-tiedostoissa on puolipiste-erotin, desimaalipilkku ja UTF-8 BOM suomenkielis
 8. **CSV-muoto** (pieni). Puolipiste ja desimaalipilkku sopivat suomenkieliseen Exceliin. Muulla kieliasetuksella tiedosto pitää tuoda Tiedot → Tekstistä/CSV:stä -toiminnolla.
 9. **Kesken oleva vuosi** (pieni). Kuluvan vuoden säädata ei ole täydellinen, joten mallia ei voi ajaa ennen vuoden loppua. Hinnat voi silti hakea.
 10. **API-avain ja käyttöehdot julkisessa palvelussa** (pieni). Selainversiossa jokainen käyttäjä tarvitsee oman MML-avaimen. Jos SEAMK tarjoaa sovellusta palveluna, Open-Meteon ja Sähkötinin ei-kaupallisen käytön ehdot on tarkistettava.
-11. **3D-näkymän korkeudet ja maasto** (pieni). Korkeudet ovat arvioita eikä maastoa ole. Näkymä havainnollistaa kulutuksen jakautumista, mutta sitä ei pidä käyttää esimerkiksi aurinkopaneelien varjostuksen arviointiin. Suositus: MML:n laserkeilausaineistosta voisi johtaa todelliset korkeudet ja kattomuodot.
+11. **Lämmityssähkön erottelu pelkästä vuosisummasta** (keskisuuri). Kun sähkölämmitteisen tilan ainoa tieto on liittymän vuosisumma, lämmityksen osuus tulee mallin oletusparametreista. Suositus: anna kuukausitiedot (Datahub) tai lämmityksen alamittarin lukema. Lämpöpumpun SCOP on vakio, joten ilma-vesilämpöpumpun talven lämmityssähkö jää liian pieneksi.
+12. **3D-näkymän korkeudet ja maasto** (pieni). Korkeudet ovat arvioita eikä maastoa ole. Näkymä havainnollistaa kulutuksen jakautumista, mutta sitä ei pidä käyttää esimerkiksi aurinkopaneelien varjostuksen arviointiin. Suositus: MML:n laserkeilausaineistosta voisi johtaa todelliset korkeudet ja kattomuodot.
 
 ## 13. Lähdeluettelo
 
