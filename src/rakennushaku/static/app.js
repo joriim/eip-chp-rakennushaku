@@ -151,11 +151,11 @@
   function drawBuildings() {
     layers.buildings.clearLayers();
     for (const k in shapes) delete shapes[k];
-    const accent = getCss("--accent"), heat = getCss("--heat"), elc = getCss("--el"), nb = getCss("--neighbour");
+    const accent = getCss("--accent"), heat = getCss("--heat"), elc = getCss("--el"), nb = getCss("--neighbour"), heatLine = getCss("--heat-line");
     for (const b of state.buildings) {
       const col = (b.scope || "both") === "el" ? elc : heat;
       const style = b.heated
-        ? { color: col, weight: 2, fillColor: col, fillOpacity: 0.55 }
+        ? { color: col === heat ? heatLine : col, weight: 2, fillColor: col, fillOpacity: 0.75 }
         : b.on_property
           ? { color: accent, weight: 1.5, fillColor: accent, fillOpacity: 0.12 }
           : { color: nb, weight: 1, fillColor: nb, fillOpacity: 0.12, dashArray: "3 3" };
@@ -706,7 +706,7 @@
       const r = Math.min(4, h / 2);
       const top_ = y(v);
       const path = h > 0 ? `M${x},${y(0)} V${top_ + r} Q${x},${top_} ${x + r},${top_} H${x + bw - 4 - r} Q${x + bw - 4},${top_} ${x + bw - 4},${top_ + r} V${y(0)} Z` : "";
-      return `<path d="${path}" fill="var(${colorVar})"/>
+      return `<path d="${path}" fill="var(${colorVar})" stroke="var(${colorVar}-line)" stroke-width="1"/>
         <rect x="${padL + i * bw}" y="${padT}" width="${bw}" height="${H - padT - padB}" fill="transparent" data-tip="${MONTHS[i]}: ${fmt(v, 1)} ${unitLabel}"/>
         <text x="${x + (bw - 4) / 2}" y="${H - 5}" text-anchor="middle">${MONTHS[i].slice(0, 1)}</text>`;
     }).join("");
@@ -738,7 +738,7 @@
     const desc = `Huippu ${fmt(p, 1)} kW. Yli puolet huipusta ${fmt(at(p / 2))} h, yli neljännes ${fmt(at(p / 4))} h.`;
     const tips = [0, 100, 500, 1000, 2000, 4000, 6000, 8000].map((h) => `<circle class="dur-pt" cx="${x(h)}" cy="${y(sorted[Math.min(h, 8759)])}" r="5" data-tip="${fmt(h)} h: ${fmt(sorted[Math.min(h, 8759)], 1)} kW"/>`).join("");
     return `<div class="chart"><h4>${esc(title)}</h4><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(title + ". " + desc)}">${g}
-      <path d="${area}" fill="var(${colorVar})" fill-opacity="0.18"/><polyline points="${pts}" fill="none" stroke="var(${colorVar})" stroke-width="2"/>${cap}${tips}</svg>
+      <path d="${area}" fill="var(${colorVar})" fill-opacity="0.45"/><polyline points="${pts}" fill="none" stroke="var(${colorVar}-line)" stroke-width="2"/>${cap}${tips}</svg>
       <p class="chart-note">${esc(desc)}${capNote ? " " + esc(capNote) : ""} Vaaka-akseli: tunnit vuodessa, suurimmasta tehosta alkaen.</p></div>`;
   }
   function niceStep(x) {
@@ -1125,7 +1125,19 @@
   if (window.ResizeObserver) new ResizeObserver(syncTopHeight).observe($(".top"));
   else window.addEventListener("resize", syncTopHeight);
 
+  // SEAMK logo: only the official file from the SEAMK image bank, placed in static/brand/. Nothing is drawn in its place.
+  function loadLogo() {
+    const img = $("#brandLogo");
+    if (!img) return;
+    const srcs = (img.dataset.src || "").split(/\s+/).filter(Boolean);
+    const next = () => { if (!srcs.length) { img.remove(); return; } img.src = srcs.shift(); };
+    img.onload = () => { img.hidden = false; };
+    img.onerror = next;
+    next();
+  }
+
   async function boot() {
+    loadLogo();
     syncTopHeight();
     const ys = $("#year");
     const cy = new Date().getFullYear();

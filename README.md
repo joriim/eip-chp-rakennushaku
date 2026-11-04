@@ -109,6 +109,8 @@ python docs/build_docs.py          # päivittää menetelmädokumentin (HTML vaa
 - **Rakenne:** `src/rakennushaku/` sisältää Python-mallin, rajapinnat ja käyttöliittymän (`static/`). `web/engine.js` on mallin selainversio, ja `web/build.py` kokoaa yhden tiedoston sovelluksen. `docs/` sisältää menetelmät ja lähteet, `tests/` testit.
 - **Rinnakkaiset toteutukset:** mallin muutokset tehdään sekä tiedostoon `src/rakennushaku/model.py` että `web/engine.js`, ja tarkistetaan komennolla `check_equivalence.py`.
 - **Automaatio:** GitHub Actions ajaa testit jokaisesta muutoksesta ja julkaisee selainversion GitHub Pagesiin. Pages otetaan käyttöön kerran: *Settings → Pages → Source: GitHub Actions*.
+- **Ilme:** SEAMKin brändikäsikirja 2025/03: vain viralliset värit (lila, keltainen ja niiden vaalennukset; lisävärit kaavioissa ja tiloissa), otsikot Alte DIN 1451 Mittelschrift ja leipäteksti Acumin Pro / Arial. Otsikkofontin korvikkeena on mukana Barlow Condensed, koska DIN-fonttia ei yleensä ole asennettu eikä fontteja ladata verkosta.
+- **SEAMK-tunnus:** sovellus näyttää tunnuksen vain virallisena tiedostona. Hae se SEAMKin Kuvapankista (SharePoint: SeAMK-Staff → Kuvapankki) ja tallenna nimellä `src/rakennushaku/static/brand/seamk-tunnus.svg` (tai `.png`). Selainversio upottaa sen seuraavassa koonnissa; ilman tiedostoa tunnuksen paikka jää tyhjäksi.
 - **Repositorio:** kehitysversio on toistaiseksi osoitteessa https://github.com/joriim/eip-chp-rakennushaku. Sovellus on tarkoitus siirtää myöhemmin SEAMKin GitHub-organisaatioon (SeAMKedu); osoitteet päivitetään siirron yhteydessä (`README.md`, `CITATION.cff`, `pyproject.toml`).
 
 ## Viittaaminen
@@ -130,7 +132,7 @@ Laadittu EIP CHP Energiaälykäs eteläpohjalainen maatila -hankkeessa. Hankkeen
 
 ## Lisenssit ja tietolähteet
 
-- **Koodi:** MIT ([LICENSE](LICENSE)), © Seinäjoen ammattikorkeakoulu. Mukana: Leaflet 1.9.4 (BSD-2-Clause) ja MapLibre GL JS 5.24.0 (BSD-3-Clause). Valinnaisena verkosta ladattava CesiumJS 1.146.0 (Apache-2.0).
+- **Koodi:** MIT ([LICENSE](LICENSE)), © Seinäjoen ammattikorkeakoulu. Mukana: Leaflet 1.9.4 (BSD-2-Clause), MapLibre GL JS 5.24.0 (BSD-3-Clause) ja Barlow Condensed -fontti (SIL OFL 1.1). Valinnaisena verkosta ladattava CesiumJS 1.146.0 (Apache-2.0).
 - **Data** haetaan käyttäjälle rajapinnoista eikä sisälly repoon:
   - Maanmittauslaitos (CC BY 4.0)
   - Ilmatieteen laitos (CC BY 4.0)

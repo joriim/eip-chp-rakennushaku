@@ -11,6 +11,7 @@ Energianeuvojan näkökulmasta tehdyn käyttöliittymäarvion (4.11.2026) korjau
 - Korjattu: tarkistuslistan "Kulutustiedot annettu" ennen valintoja; negatiivinen ja nolla-ala; käsin lisätyn rakennuksen oletusala ja nimi; vuoden vaihdon jälkeinen tuntitiedostokortti; ilmoitukset pinoutuvat eivätkä peitä tuloksia; rakennus poistuu laskennasta vain valintaruudusta; *Laske uudelleen* ei enää jää reagoimatta, kun kentän muokkaus päättyy painikkeen klikkaukseen.
 - Saavutettavuus: yksikkövalinnan ja painikeryhmien nimet ja tila (axe-core: ei WCAG A/AA -rikkeitä).
 - Käsite *lämmityspiiri* on käyttöliittymässä *lämmitysjärjestelmä*.
+- Ilme SEAMKin brändikäsikirjan 2025/03 mukaan (seamk-brandi): vain viralliset värit ja niiden vaalennukset. Lämpö piirretään vihreällä lisävärillä tummalla ääriviivalla (aiemmin tiimin ehdotusväri terrakotta), huomautukset mustalla tekstillä keltaisella ja virheet pinkillä. Otsikot tiiviillä groteskilla isoin kirjaimin; korvikefontti Barlow Condensed (SIL OFL) tulee sovelluksen mukana. SEAMK-tunnukselle on paikka, joka täyttyy vain virallisella tiedostolla.
 
 ## 0.5.0 – 2026-11-01 (ensimmäinen julkinen versio)
 

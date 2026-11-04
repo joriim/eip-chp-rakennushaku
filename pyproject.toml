@@ -33,7 +33,7 @@ rakennushaku = "rakennushaku.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-rakennushaku = ["static/*", "static/vendor/leaflet/*", "static/vendor/leaflet/images/*", "static/vendor/maplibre/*"]
+rakennushaku = ["static/*", "static/vendor/leaflet/*", "static/vendor/leaflet/images/*", "static/vendor/maplibre/*", "static/vendor/barlow-condensed/*", "static/brand/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

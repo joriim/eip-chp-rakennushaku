@@ -169,6 +169,11 @@ def page() -> str:
     html = (STATIC / "index.html").read_text(encoding="utf-8")
     html = sub(html, '<link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">', "<style>\n" + leaflet_css() + "\n</style>")
     css = (STATIC / "app.css").read_text(encoding="utf-8")
+    # bundled heading font (Barlow Condensed, SIL OFL) as data URIs
+    for w in (600, 700):
+        rel = f"vendor/barlow-condensed/barlow-condensed-latin-{w}-normal.woff2"
+        b64 = base64.b64encode((STATIC / rel).read_bytes()).decode("ascii")
+        css = sub(css, f'url("{rel}")', f'url("data:font/woff2;base64,{b64}")')
     css += """
 .keybox { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: var(--text-sm); }
 .keybox input { width: 13.5em; font-family: var(--font-code); font-size: var(--text-xs); }
@@ -176,6 +181,15 @@ def page() -> str:
 @media (max-width: 900px) { .keybox input { width: 100%; } .keybox { flex: 1 1 100%; } }
 """
     html = sub(html, '<link rel="stylesheet" href="/static/app.css">', "<style>\n" + css + "\n</style>")
+    # official SEAMK logo, only if the file from the image bank has been added
+    logo_slot = 'data-src="/static/brand/seamk-tunnus.svg /static/brand/seamk-tunnus.png"'
+    for name, mime in (("seamk-tunnus.svg", "image/svg+xml"), ("seamk-tunnus.png", "image/png")):
+        f = STATIC / "brand" / name
+        if f.exists():
+            html = sub(html, logo_slot, f'data-src="data:{mime};base64,{base64.b64encode(f.read_bytes()).decode("ascii")}"')
+            break
+    else:
+        html = re.sub(r'\s*<img id="brandLogo"[^>]*>', "", html, count=1)
     html = sub(html, '<span id="keyChip" class="chip"></span>',
                '<label class="keybox" for="mmlKey">MML API-avain\n'
                '      <input id="mmlKey" type="password" autocomplete="off" spellcheck="false" placeholder="liitä avain">\n'
