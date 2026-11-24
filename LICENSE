@@ -23,6 +23,7 @@ SOFTWARE.
 Third-party components: Leaflet 1.9.4 (BSD-2-Clause), see
 src/rakennushaku/static/vendor/leaflet/LICENSE; MapLibre GL JS 5.24.0
 (BSD-3-Clause), see src/rakennushaku/static/vendor/maplibre/LICENSE.txt.
+laz-perf 0.0.7 (Apache-2.0), see src/rakennushaku/static/vendor/laz-perf/LICENSE.txt.
 Barlow Condensed (SIL Open Font License 1.1), see
 src/rakennushaku/static/vendor/barlow-condensed/OFL.txt.
 CesiumJS 1.146.0 (Apache-2.0) is not included; the optional 3D engine loads

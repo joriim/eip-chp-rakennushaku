@@ -52,6 +52,11 @@
       </div>
       <p class="hint">Klikkaa rakennusta kartalla tai listassa. Valitse lämmitettävät rakennukset ja ne, jotka kuluttavat sähköä samasta liittymästä (esim. kuivuri tai konehalli: <em>vain sähkö</em>). Pinta-ala on arvio (pohjan ala × kerrokset); korjaa se.</p>
       <div id="buildingList" class="blist"><p class="empty">Hae ensin tila kohdassa 1.</p></div>
+      <div class="lidar-box">
+        <button type="button" class="btn small" id="lidarRun" disabled>Mittaa koko ja kattomuoto laserkeilauksesta</button>
+        <p class="hint">Valituille rakennuksille MML:n avoimesta laserkeilausaineistosta (0,5 pistettä/m²): räystään ja harjan korkeus, kattomuoto ja -kaltevuus, tilavuus sekä pohjan ala keilauksen mukaan. Aineisto ladataan 3 × 3 km:n karttalehtinä (yleensä alle 40 Mt lehti) ja käsitellään tässä selaimessa.</p>
+        <p id="lidarStatus" class="summary" role="status" hidden></p>
+      </div>
     </section>
 
     <section class="step" id="step3">
@@ -143,6 +148,7 @@
 <div id="tip" class="tip" hidden></div>
 
 <script src="/static/vendor/leaflet/leaflet.js"></script>
+<script src="/static/lidar.js"></script>
 <script src="/static/view3d.js"></script>
 <script src="/static/app.js"></script>
 </body>

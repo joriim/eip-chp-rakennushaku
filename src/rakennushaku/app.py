@@ -13,12 +13,12 @@ from pathlib import Path
 
 import requests
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse, PlainTextResponse, Response
+from fastapi.responses import FileResponse, PlainTextResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from shapely.geometry import Point, mapping
 
-from rakennushaku import __version__, export, mml, model, prices, weather
+from rakennushaku import __version__, export, lidar, mml, model, prices, weather
 from rakennushaku.series_parser import SeriesParseError, parse_series
 
 STATIC = Path(__file__).parent / "static"
@@ -141,6 +141,49 @@ def tile(layer: str, z: int, x: int, y: int) -> Response:
     if len(_tile_cache) > 3000:
         _tile_cache.popitem(last=False)
     return Response(r.content, media_type=ctype, headers={"Cache-Control": "max-age=86400"})
+
+
+# --------------------------------------------------------------------------- laser scanning (relay only)
+# The browser decodes and analyses the LAZ files (static/lidar.js); the server holds the key.
+class LidarJobRequest(BaseModel):
+    sheets: list[str]
+
+
+@app.post("/api/lidar/job")
+def lidar_job(req: LidarJobRequest) -> dict:
+    try:
+        return {"job": lidar.submit(req.sheets, api_key(), _session)}
+    except mml.MissingApiKey as e:
+        raise HTTPException(503, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except requests.RequestException as e:
+        raise _upstream_error(e, "Laserkeilausaineiston tilaus")
+
+
+@app.get("/api/lidar/job/{job}")
+def lidar_status(job: str) -> dict:
+    try:
+        st = lidar.status(job, api_key(), _session)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except requests.RequestException as e:
+        raise _upstream_error(e, "Laserkeilausaineiston tila")
+    return st
+
+
+@app.get("/api/lidar/file")
+def lidar_file(url: str = Query(...)) -> StreamingResponse:
+    if not lidar.allowed_file(url):
+        raise HTTPException(400, "Vain MML:n tiedostopalvelun tiedostoja välitetään.")
+    try:
+        r = lidar.open_file(url, api_key(), _session)
+    except requests.RequestException as e:
+        raise _upstream_error(e, "Laserkeilaustiedoston lataus")
+    headers = {"Content-Disposition": f"attachment; filename={url.split('/')[-1].split('?')[0]}"}
+    if r.headers.get("Content-Length"):
+        headers["Content-Length"] = r.headers["Content-Length"]
+    return StreamingResponse(r.iter_content(256 * 1024), media_type="application/octet-stream", headers=headers)
 
 
 # --------------------------------------------------------------------------- weather

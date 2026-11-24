@@ -299,12 +299,13 @@
           <p class="note">Lämmitys painottuu erän alkuun: asetuslämpö laskee 30 °C:sta 20 °C:een 27 vuorokaudessa (Aviagen 2025) ja lintujen lämmöntuotto kasvaa erän aikana. Tyhjänä halli pidetään +8 °C:ssa. Jos hallit ovat eri vaiheessa, anna niille eri sisäänottopäivä; muuten huiput osuvat päällekkäin.</p>` : ""}
           ${b.is_point && !b.manual ? `<p class="note">MML:ssä tästä rakennuksesta on vain piste. Anna lämmitetty ala itse.</p>` : ""}
           ${b.area_default ? `<p class="note warnline">Ala on oletus 100 m². Anna rakennuksen todellinen lämmitetty ala.</p>` : ""}
+          ${lidarCard(b)}
           ${b.manual ? `<p class="note"><button type="button" class="btn small" data-remove="1">Poista rakennus</button></p>` : ""}
         </div>` : "";
       return `<div class="bitem${b.heated ? " on" : ""}${b.on_property ? "" : " neighbour"}" data-id="${esc(b.id)}">
         <div class="bhead">
           <input type="checkbox" aria-label="Mukana laskennassa" ${b.heated ? "checked" : ""}>
-          <div class="btitle"><strong>${esc(b.name)}${b.suggested && b.heated ? '<span class="tag">ehdotus</span>' : ""}</strong><span>${esc(meta)}</span></div>
+          <div class="btitle"><strong>${esc(b.name)}${b.suggested && b.heated ? '<span class="tag">ehdotus</span>' : ""}${b.lidar && b.lidar.status === "ok" ? '<span class="tag lidar">lidar</span>' : ""}</strong><span>${esc(meta)}</span></div>
           <div class="barea">${b.heated ? fmt(b.heated_m2) + " m²" : ""}</div>
         </div>${body}</div>`;
     }).join("");
@@ -317,6 +318,17 @@
     if (e.target.dataset.remove) {
       state.buildings = state.buildings.filter((b) => b.id !== id);
       renderAll();
+      return;
+    }
+    if (e.target.dataset.lidarApply) {
+      const b = state.buildings.find((x) => x.id === id);
+      const [floors, area] = e.target.dataset.lidarApply.split(":").map(Number);
+      b.floors = floors;
+      b.heated_m2 = area;
+      b.area_default = false;
+      state.result = null;
+      renderAll();
+      toast(`${b.name}: lämmitetty ala ${fmt(area)} m² laserkeilauksen mukaan.`);
       return;
     }
     if (e.target.closest(".bhead")) {
@@ -999,14 +1011,20 @@
     const low = mix(paper, hue, 0.15);
     const features = list.map((b) => {
       const r = per[b.id];
-      const h = Math.max(1, b.floors || 1) * FLOOR_H;
-      const lines = [inCalc(b), esc(b.class_label), b.footprint_m2 ? `pohja ${fmt(b.footprint_m2)} m²` : "", `korkeus noin ${fmt(h, 1)} m`];
+      const L = b.lidar && b.lidar.status === "ok" ? b.lidar : null;
+      const h = L ? L.mean_h : Math.max(1, b.floors || 1) * FLOOR_H;
+      const lines = [inCalc(b), esc(b.class_label), b.footprint_m2 ? `pohja ${fmt(b.footprint_m2)} m²` : "",
+        L ? `${ROOF_TEXT[L.roof] || L.roof}, ${L.roof === "tasakatto" ? `korkeus ${fmt(L.mean_h, 1)} m` : `räystäs ${fmt(L.eave_h, 1)} m, harja ${fmt(L.ridge_h, 1)} m`} (laserkeilaus${L.year ? " " + L.year : ""})`
+          : `korkeus noin ${fmt(h, 1)} m (arvio)`];
       if (r) lines.push(`sähkö ${fmt(r.electricity_kwh / 1000, 1)} MWh/v`, `lämpö ${fmt(r.heat_kwh / 1000, 1)} MWh/v`);
       let color;
       if (colour === "pick") color = b.heated ? ((b.scope || "both") === "el" ? elC : heatC) : b.on_property ? grey : nb;
       else color = r ? mix(low, hue, max > 0 ? (r[key] || 0) / max : 0) : b.on_property ? grey : nb;
-      return { type: "Feature", geometry: footprint(b), properties: { id: b.id, name: esc(b.name), h, color, label: lines.filter(Boolean).join("<br>") } };
-    });
+      const props = { id: b.id, name: esc(b.name), color, label: lines.filter(Boolean).join("<br>") };
+      const strips = L ? RHL.roofStrips(b, L, 10) : null;
+      if (strips && strips.length) return strips.map((s) => ({ type: "Feature", geometry: { type: "Polygon", coordinates: [s.ring] }, properties: { ...props, h: s.h } }));
+      return [{ type: "Feature", geometry: footprint(b), properties: { ...props, h } }];
+    }).flat();
     // frame the heated buildings, or everything when none is chosen
     const heatedIds = new Set(state.buildings.filter((b) => b.heated).map((b) => b.id));
     const framed = features.filter((f) => heatedIds.has(f.properties.id));
@@ -1022,7 +1040,8 @@
   function renderLegend(sc) {
     const el = $("#v3dLegend");
     if (!sc) { el.innerHTML = ""; return; }
-    const height = `<span class="v3d-hint">Korkeus: kerrokset × ${fmt(FLOOR_H, 1)} m (arvio)</span><span class="v3d-hint">Klikkaa rakennusta: mukaan tai pois</span>`;
+    const nl = state.buildings.filter((b) => b.lidar && b.lidar.status === "ok").length;
+    const height = `<span class="v3d-hint">${nl ? `Korkeus ja kattomuoto: laserkeilaus (${nl} rakennusta), muut kerrokset × ${fmt(FLOOR_H, 1)} m` : `Korkeus: kerrokset × ${fmt(FLOOR_H, 1)} m (arvio)`}</span><span class="v3d-hint">Klikkaa rakennusta: mukaan tai pois</span>`;
     if (sc.colour === "pick") {
       el.innerHTML = `<span class="v3d-hint">${state.result ? "Väri: valinta" : "Laske tuntiprofiili, niin väri kertoo kulutuksen"}</span>` + height;
       return;
@@ -1098,6 +1117,93 @@
   $("#v3dColor").addEventListener("change", (e) => { v3dPrefs.color = e.target.value; saveV3dPrefs(); refresh3d(); });
   if (window.ResizeObserver) new ResizeObserver(() => { map.invalidateSize(); RH3D.resize(); }).observe($(".mapwrap"));
 
+  // ------------------------------------------------------------------ laser scanning (MML Laserkeilausaineisto 0,5 p)
+  // <lidar-io> data source and LAZ decoder for the server version; the single-file build replaces this block
+  function lidarSource() { return RHL.serverSource(); }
+  function loadScriptOnce(src) {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[data-src="${src}"]`)) return resolve();
+      const s = document.createElement("script");
+      s.src = src; s.dataset.src = src; s.onload = resolve;
+      s.onerror = () => reject(new Error("LAZ-purkukirjaston lataus epäonnistui."));
+      document.head.appendChild(s);
+    });
+  }
+  async function lidarDecoder() {
+    if (!window.createLazPerf) await loadScriptOnce("/static/vendor/laz-perf/laz-perf.js");
+    return { factory: window.createLazPerf, locateFile: (f) => "/static/vendor/laz-perf/" + f };
+  }
+  function lidarKeyOk() { return !!META.has_mml_key; }
+  // </lidar-io>
+
+  const HALL_USES = new Set(["broileri", "lihasika", "emakko", "navetta", "kuivuri", "korjaamo", "muu"]);
+  const ROOF_TEXT = { tasakatto: "tasakatto", harjakatto: "harjakatto", pulpettikatto: "pulpettikatto", monimuotoinen: "monimuotoinen katto" };
+  // floors from the eave height for dwellings and offices (storey about 3 m); halls are one storey
+  function lidarFloors(b, L) {
+    if (HALL_USES.has(b.use)) return 1;
+    return Math.max(1, Math.min(4, Math.round((L.eave_h - 0.5) / 3)));
+  }
+  function lidarCard(b) {
+    const L = b.lidar;
+    if (!L) return "";
+    if (L.status !== "ok") {
+      return `<p class="note${L.status === "not_seen" ? " warnline" : ""}">Laserkeilaus${L.year ? " " + L.year : ""}: ${esc((L.notes || []).join(" ") || "ei tulosta")}</p>`;
+    }
+    const pitch = L.roof === "harjakatto" || L.roof === "pulpettikatto" ? ` ${fmt(L.pitch_deg)}°` : "";
+    const heights = L.roof === "tasakatto" ? `korkeus ${fmt(L.mean_h, 1)} m` : `räystäs ${fmt(L.eave_h, 1)} m, harja ${fmt(L.ridge_h, 1)} m`;
+    let apply = "";
+    const fp = b.footprint_m2 || L.area_mml_m2;
+    const floors = lidarFloors(b, L);
+    if ((b.scope || "both") !== "el" && fp && floors !== (b.floors || 1)) {
+      const area = Math.round(fp * floors);
+      apply = `<button type="button" class="btn small" data-lidar-apply="${floors}:${area}">Käytä ${floors} ${floors === 1 ? "kerros" : "kerrosta"}: ${fmt(area)} m²</button>`;
+    }
+    if ((b.scope || "both") !== "el" && L.lidar_area_m2 > L.area_mml_m2 * 1.2) {
+      const area = Math.round(L.lidar_area_m2 * floors);
+      apply += ` <button type="button" class="btn small" data-lidar-apply="${floors}:${area}">Käytä keilattua pohjaa: ${fmt(area)} m²</button>`;
+    }
+    return `<div class="lidar-card full">
+      <p class="note"><strong>Laserkeilaus${L.year ? " " + L.year : ""}:</strong> ${ROOF_TEXT[L.roof] || L.roof}${pitch}, ${heights}, keskikorkeus ${fmt(L.mean_h, 1)} m, tilavuus noin ${fmt(L.volume_m3)} m³.
+        Pohja keilauksen mukaan ${fmt(L.lidar_area_m2)} m² (MML ${fmt(L.area_mml_m2)} m²).${!HALL_USES.has(b.use) ? ` Räystään korkeuden mukaan ${floors} ${floors === 1 ? "kerros" : "kerrosta"}.` : ""}</p>
+      ${(L.notes || []).map((n) => `<p class="note warnline">${esc(n)}</p>`).join("")}
+      ${apply ? `<p class="note">${apply}</p>` : ""}
+    </div>`;
+  }
+  function renderLidarButton() {
+    const n = state.buildings.filter((b) => b.heated).length;
+    const btn = $("#lidarRun");
+    btn.disabled = !n || lidarBusy;
+    btn.textContent = n ? `Mittaa koko ja kattomuoto laserkeilauksesta (${n} ${n === 1 ? "rakennus" : "rakennusta"})` : "Mittaa koko ja kattomuoto laserkeilauksesta";
+  }
+  let lidarBusy = false;
+  $("#lidarRun").addEventListener("click", async () => {
+    const chosen = state.buildings.filter((b) => b.heated);
+    if (!chosen.length) return;
+    if (!lidarKeyOk()) { toast("MML-rajapinta-avain puuttuu. Laserkeilausaineisto haetaan samalla avaimella kuin rakennukset.", true); return; }
+    const status = $("#lidarStatus");
+    const say = (t) => { status.hidden = false; status.textContent = t; };
+    lidarBusy = true; renderLidarButton();
+    try {
+      const out = await RHL.run(chosen, lidarSource(), say, await lidarDecoder());
+      let ok = 0, unseen = 0;
+      for (const b of chosen) {
+        b.lidar = out.results[b.id];
+        if (b.lidar && b.lidar.status === "ok") ok++;
+        if (b.lidar && b.lidar.status === "not_seen") unseen++;
+      }
+      say(`Laserkeilaus ${out.year || ""} (${out.sheets.join(", ")}): ${ok} ${ok === 1 ? "rakennus" : "rakennusta"} mitattu${unseen ? `, ${unseen} ei näy aineistossa` : ""}. Tulokset ovat rakennuskorteissa ja 3D-näkymässä.`);
+      renderAll();
+    } catch (e) {
+      const net = e instanceof TypeError || /fetch/i.test(e.message);
+      say(net ? "MML:n tiedostopalveluun ei saatu yhteyttä tästä selaimesta. Jos sivu on avattu levyltä tai palvelu ei salli selainkäyttöä, käytä Python-palvelinversiota."
+        : `Laserkeilausta ei saatu: ${e.message}`);
+      status.classList.add("error");
+      setTimeout(() => status.classList.remove("error"), 8000);
+    } finally {
+      lidarBusy = false; renderLidarButton();
+    }
+  });
+
   // Replacing a list's HTML blurs the focused field inside it, and the field's change event can ask for another
   // render while the first is still running. Such a request waits until the running render has finished.
   let rendering = false, renderPending = false;
@@ -1108,6 +1214,7 @@
     if (renderPending) { renderPending = false; queueMicrotask(renderAll); }
   }
   function renderAllNow() {
+    renderLidarButton();
     renderPrices();
     renderBuildings();
     drawBuildings();

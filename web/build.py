@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "src" / "rakennushaku" / "static"
 WEB = ROOT / "web"
-VERSION = "0.6.0"
+VERSION = "0.7.0"
 
 
 def sub(text: str, old: str, new: str) -> str:
@@ -146,6 +146,23 @@ def ui_js() -> str:
   }
 
   // ------------------------------------------------------------------ boot''')
+    # laser scanning: straight to the NLS file service with the viewer's own key; laz-perf from the page itself
+    i0 = js.index("  // <lidar-io>")
+    i1 = js.index("  // </lidar-io>") + len("  // </lidar-io>")
+    js = js[:i0] + '''  // <lidar-io> single-file version: the NLS file service is called directly with the viewer's key
+  function lidarSource() { return RHL.directSource(mmlKey); }
+  async function lidarDecoder() {
+    if (!window.createLazPerf) {
+      const s = document.createElement("script");
+      s.textContent = $("#lib-lazperf").textContent;
+      document.head.appendChild(s);
+    }
+    const b64 = $("#lib-lazperf-wasm").textContent.trim();
+    const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    return { factory: window.createLazPerf, wasmBinary: bin };
+  }
+  function lidarKeyOk() { return !!mmlKey(); }
+  // </lidar-io>''' + js[i1:]
     js = js.replace("  boot();\n})();", """  const dlg = $("#docsDialog");
   if (dlg) {
     const openDocs = (e) => { if (e) e.preventDefault(); if (!dlg.open) dlg.showModal(); };
@@ -209,6 +226,14 @@ def page() -> str:
     html = sub(html, '<script src="/static/vendor/leaflet/leaflet.js"></script>',
                "<script>/* Leaflet 1.9.4 (https://leafletjs.com), BSD-2-Clause:\n" + lic + "\n*/\n" + leaflet + "\n</script>")
     # 3D view: its module inline; MapLibre kept as inert text and started only when the 3D view opens
+    lid = (STATIC / "lidar.js").read_text(encoding="utf-8")
+    html = sub(html, '<script src="/static/lidar.js"></script>', "<script>\n" + lid + "\n</script>")
+    lp_dir = STATIC / "vendor/laz-perf"
+    lp_lic = (lp_dir / "LICENSE.txt").read_text(encoding="utf-8").splitlines()[:2]
+    html = sub(html, "</body>",
+               "<!-- " + " ".join(lp_lic).replace("--", "- -") + " -->\n"
+               + '<script type="text/plain" id="lib-lazperf">' + inert((lp_dir / "laz-perf.js").read_text(encoding="utf-8")) + "</script>\n"
+               + '<script type="text/plain" id="lib-lazperf-wasm">' + base64.b64encode((lp_dir / "laz-perf.wasm").read_bytes()).decode("ascii") + "</script>\n</body>")
     v3d = (STATIC / "view3d.js").read_text(encoding="utf-8")
     html = sub(html, '<script src="/static/view3d.js"></script>', "<script>\n" + v3d + "\n</script>")
     ml_dir = STATIC / "vendor/maplibre"

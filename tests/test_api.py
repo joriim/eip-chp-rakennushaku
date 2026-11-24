@@ -114,3 +114,36 @@ def test_3d_view_assets(client):
     from pathlib import Path
     built = (Path(__file__).resolve().parents[1] / "web" / "rakennushaku.html").read_text(encoding="utf-8")
     assert 'id="lib-maplibre"' in built and "window.RH3D" in built and "function tileTemplate()" in built
+
+
+# --------------------------------------------------------------------------- laser scanning relay
+def test_lidar_job_status_and_file(client):
+    from fixtures import LIDAR_FIXTURE
+    r = client.post("/api/lidar/job", json={"sheets": ["l4133b3"]})
+    assert r.status_code == 200 and r.json() == {"job": "job-1"}
+    url, params, body = appmod._session.posts[-1]
+    assert url.endswith("/processes/laserkeilausaineisto_05_karttalehti/execution") and params["api-key"] == "key"
+    # newest data set chosen from the process description; sheet normalised
+    assert body["inputs"] == {"mapSheetInput": ["L4133B3"], "fileFormatInput": "LAZ", "dataSetInput": "laserkeilausaineisto_05_2023"}
+    assert client.get("/api/lidar/job/job-1").json()["status"] == "running"
+    st = client.get("/api/lidar/job/job-1").json()
+    assert st["status"] == "successful" and len(st["files"]) == 1 and st["files"][0]["sheet"] == "L4133B3"
+    f = client.get("/api/lidar/file", params={"url": st["files"][0]["path"]})
+    assert f.status_code == 200 and f.content == LIDAR_FIXTURE.read_bytes()
+
+
+def test_lidar_rejects_bad_input(client, monkeypatch):
+    assert client.post("/api/lidar/job", json={"sheets": ["L4133B"]}).status_code == 400            # not a 1:5000 sheet
+    assert client.post("/api/lidar/job", json={"sheets": [f"L4133B{i}" for i in range(1, 5)] + ["L4133D1", "L4133D2", "L4133D3"]}).status_code == 400
+    assert client.get("/api/lidar/file", params={"url": "https://example.com/x.laz"}).status_code == 400   # no open proxy
+    assert client.get("/api/lidar/job/..%2Fetc").status_code in (400, 404)
+    monkeypatch.setenv("MML_API_KEY", "")
+    assert client.post("/api/lidar/job", json={"sheets": ["L4133B3"]}).status_code == 503
+
+
+def test_lidar_python_and_js_input_rules_agree():
+    from fixtures import LIDAR_DESC
+    from rakennushaku import lidar
+    assert lidar.process_inputs(LIDAR_DESC, ["L4133B3"])["dataSetInput"] == "laserkeilausaineisto_05_2023"
+    files = lidar.laz_files({"results": [{"path": "https://x/a/L4133B3_2019.laz"}, {"path": "https://x/a/L4133B3_2023.laz"}]})
+    assert [f["year"] for f in files] == [2023]

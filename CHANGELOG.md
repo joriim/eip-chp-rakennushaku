@@ -1,5 +1,11 @@
 # Muutokset
 
+## 0.7.0 – 2026-11-24
+
+- **Rakennusten koko ja kattomuoto laserkeilauksesta.** Valituille rakennuksille haetaan MML:n avoin Laserkeilausaineisto 0,5 p (Paikkatiedon tiedostopalvelu, OGC API Processes) ja lasketaan selaimessa: räystään ja harjan korkeus, kattomuoto ja -kaltevuus, tilavuus sekä pohjan ala keilauksen mukaan verrattuna MML:n pohjaan (laajennus, purettu rakennus). Asuin- ja toimistorakennuksille arvio kerrosluvusta ja painike lämmitetyn alan päivittämiseen. 3D-näkymä piirtää mitatut katot.
+- LAZ-purku laz-perf-kirjastolla (WebAssembly, Apache-2.0); Python-palvelinversiossa palvelin välittää MML:n pyynnöt (`/api/lidar/...`).
+- Testit: synteettinen pistepilvi ja Node-testit kattomuodon tunnistukselle; palvelimen välitys Python-testeissä.
+
 ## 0.6.0 – 2026-11-04
 
 Energianeuvojan näkökulmasta tehdyn käyttöliittymäarvion (4.11.2026) korjaukset.

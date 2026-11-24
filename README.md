@@ -2,7 +2,7 @@
 
 Rakennushaku muodostaa maatilan rakennuksille tunnittaisen sähkö- ja lämpöprofiilin **Maatilan hybridienergialaskuriin**. Profiili perustuu avoimeen paikkatietoon, tilan omaan kulutustietoon ja saman vuoden säähavaintoihin.
 
-**Versio 0.6.0 · prototyyppi** · EIP CHP Energiaälykäs eteläpohjalainen maatila · SEAMK, Maatalous ja energia -tutkimusryhmä
+**Versio 0.7.0 · prototyyppi** · EIP CHP Energiaälykäs eteläpohjalainen maatila · SEAMK, Maatalous ja energia -tutkimusryhmä
 
 - **Käytä selaimessa:** https://joriim.github.io/eip-chp-rakennushaku/ (GitHub Pages; vaatii Pages-julkaisun, ks. *Kehitys*), tai avaa tiedosto [`web/rakennushaku.html`](web/rakennushaku.html) omalla koneella.
 - **Menetelmät, oletukset ja lähteet:** [docs/MENETELMAT_JA_LAHTEET.md](docs/MENETELMAT_JA_LAHTEET.md)
@@ -53,6 +53,13 @@ Kaikki laskenta tehdään käyttäjän selaimessa. Kulutustiedot eivät lähde k
 
    Lataa sen jälkeen CSV tai kopioi sarakkeet. Jos muutat valintoja, edellinen tulos jää himmennettynä näkyviin, kunnes painat *Laske uudelleen*. **Uusi projekti** tyhjentää kaiken seuraavaa asiakasta varten (tallenna ensin, jos tarvitset nykyistä).
 
+**Koko ja kattomuoto laserkeilauksesta.** Kohdan 2 painike *Mittaa koko ja kattomuoto laserkeilauksesta* hakee valituille rakennuksille MML:n avoimen laserkeilausaineiston (0,5 pistettä/m²) samalla API-avaimella ja laskee sen selaimessa. Tuloksena saadaan:
+- räystään ja harjan korkeus, kattomuoto (tasa-, harja-, pulpetti- tai monimuotoinen katto) ja kaltevuus,
+- tilavuus ja keskikorkeus,
+- pohjan ala keilauksen mukaan. Sitä verrataan MML:n pohjaan, jolloin esimerkiksi laajennus tai purettu rakennus huomataan.
+
+Asuin- ja toimistorakennuksille arvioidaan kerrosluku räystään korkeudesta, ja korttiin tulee painike, joka päivittää lämmitetyn alan. 3D-näkymä piirtää mitatut katot. Aineisto ladataan 3 × 3 km:n karttalehtinä (yleensä 10–40 Mt), ja kerralla voi hakea enintään kuudelta lehdeltä. Kaikkialta Suomesta ei ole vielä aineistoa.
+
 **3D-näkymä.** Kartan yläpuolelta *3D* näyttää rakennukset kolmiulotteisina ilmakuvan päällä. Korkeus on arvio (kerrokset × 3,5 m). Laskennan jälkeen väri kertoo rakennuksen mallinnetun vuotuisen lämmöntarpeen tai sähkönkulutuksen; ennen sitä väri näyttää valitut rakennukset. Rakennusta klikkaamalla näkyvät sen luvut.
 - *MapLibre GL* on oletus ja toimii myös omalta koneelta avattuna.
 - *Cesium* on vaihtoehto, joka näyttää maapallon ja vapaamman kameran. Se ladataan ensimmäisellä käytöllä jsDelivr-palvelusta (noin 5 Mt) ja toimii vain verkossa julkaistussa versiossa tai Python-palvelimella, ei omalta levyltä avattuna.
@@ -76,6 +83,8 @@ Liitä aina valinnalla **Liitä määräten → Arvot**. Rivi 2 on 1.1. klo 00�
 | "Ulkolämpötilasarjasta puuttuu … tuntia" | Vuosi on kesken tai asemalta puuttuu dataa. Valitse päättynyt vuosi, toinen asema tai Open-Meteo. |
 | "Kulutustieto puuttuu … (tulos on mallin oletus)" | Piirille tai mittarille ei ole annettu kulutusta. Tulos ei silloin kuvaa tilaa. |
 | Huipputeho ylittää kattilan tehon | Profiili on liian piikikäs (esim. broilerierät samaan aikaan) tai kattilan teho on väärä. |
+| "MML:n tiedostopalveluun ei saatu yhteyttä tästä selaimesta" | Laserkeilaushaku käyttää MML:n tiedostopalvelua. Jos selainversio ei saa siihen yhteyttä (verkko, palomuuri tai palvelu ei salli selainkäyttöä), käytä Python-palvelinversiota. |
+| "Alueelta ei ole avointa laserkeilausaineistoa" | 0,5 p -aineistoa ei ole vielä joka puolelta Suomea; kattavuus laajenee vuosittain. |
 | "3D-näkymä ei käynnistynyt" | Selain tai näytönohjain ei tue WebGL:ää, tai Cesiumia ei saatu ladattua (verkkoyhteys, palomuuri). Käytä MapLibre GL:ää tai 2D-karttaa. |
 | Cesium-vaihtoehto on harmaa | Tiedosto on avattu omalta levyltä. Cesium toimii julkaistulla sivulla tai Python-palvelimella. |
 | CSV avautuu yhteen sarakkeeseen | Excelin kieliasetus ei ole suomi. Tuo tiedosto: Tiedot → Tekstistä/CSV:stä, erotin puolipiste. |
@@ -117,7 +126,7 @@ python docs/build_docs.py          # päivittää menetelmädokumentin (HTML vaa
 
 Viittaa ohjelmistoon tiedoston [CITATION.cff](CITATION.cff) tiedoilla. Zenodo-julkaisun jälkeen pysyvä DOI lisätään tähän.
 
-Jääskeläinen, M. & Karirinne, S. (2026). *Rakennushaku: tilan rakennukset ja tunnittainen energiaprofiili Maatilan hybridienergialaskuriin* (versio 0.6.0) [Tietokoneohjelma]. Seinäjoen ammattikorkeakoulu. https://github.com/joriim/eip-chp-rakennushaku
+Jääskeläinen, M. & Karirinne, S. (2026). *Rakennushaku: tilan rakennukset ja tunnittainen energiaprofiili Maatilan hybridienergialaskuriin* (versio 0.7.0) [Tietokoneohjelma]. Seinäjoen ammattikorkeakoulu. https://github.com/joriim/eip-chp-rakennushaku
 
 ## Tekijät ja tekijöiden panos
 
@@ -132,7 +141,7 @@ Laadittu EIP CHP Energiaälykäs eteläpohjalainen maatila -hankkeessa. Hankkeen
 
 ## Lisenssit ja tietolähteet
 
-- **Koodi:** MIT ([LICENSE](LICENSE)), © Seinäjoen ammattikorkeakoulu. Mukana: Leaflet 1.9.4 (BSD-2-Clause), MapLibre GL JS 5.24.0 (BSD-3-Clause) ja Barlow Condensed -fontti (SIL OFL 1.1). Valinnaisena verkosta ladattava CesiumJS 1.146.0 (Apache-2.0).
+- **Koodi:** MIT ([LICENSE](LICENSE)), © Seinäjoen ammattikorkeakoulu. Mukana: Leaflet 1.9.4 (BSD-2-Clause), MapLibre GL JS 5.24.0 (BSD-3-Clause), laz-perf 0.0.7 (Apache-2.0) ja Barlow Condensed -fontti (SIL OFL 1.1). Valinnaisena verkosta ladattava CesiumJS 1.146.0 (Apache-2.0).
 - **Data** haetaan käyttäjälle rajapinnoista eikä sisälly repoon:
   - Maanmittauslaitos (CC BY 4.0)
   - Ilmatieteen laitos (CC BY 4.0)

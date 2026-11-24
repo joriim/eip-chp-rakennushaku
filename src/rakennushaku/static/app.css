@@ -232,6 +232,12 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
 .btitle span { color: var(--ink-3); font-size: var(--text-xs); }
 .barea { font-variant-numeric: tabular-nums; font-size: var(--text-sm); color: var(--ink-2); text-align: right; white-space: nowrap; }
 .tag { font-size: var(--text-xs); padding: 0 4px; border-radius: var(--r); background: var(--warn-soft); color: var(--on-soft); margin-left: 4px; }
+.tag.lidar { background: var(--accent-soft); color: var(--ink); }
+.lidar-box { display: grid; gap: 8px; padding-top: 4px; }
+.lidar-box .btn { justify-self: start; white-space: normal; text-align: left; }
+.lidar-card { display: grid; gap: 4px; padding: 8px; border: 1px solid var(--accent-soft); background: var(--surface-2); border-radius: var(--r); }
+.lidar-card .note { margin: 0; }
+.summary.error { background: var(--bad-soft); color: var(--on-soft); }
 .bbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; padding: 0 12px 12px; }
 .bbody label { display: grid; gap: 4px; font-size: var(--text-xs); color: var(--ink-2); min-width: 0; }
 .bbody .full { grid-column: 1 / -1; }

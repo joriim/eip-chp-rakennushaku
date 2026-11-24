@@ -1,7 +1,7 @@
 <!doctype html><html lang="fi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rakennushaku – menetelmät ja lähteet</title><style>body{font:15px/1.55 'Public Sans',system-ui,sans-serif;max-width:860px;margin:2rem auto;padding:0 16px;color:#1d231f;background:#fff}h1,h2{color:#2e6b3f}table{border-collapse:collapse;font-size:13px;display:block;overflow-x:auto}th,td{border-bottom:1px solid #d9ded8;padding:4px 6px;text-align:left;vertical-align:top}pre{background:#eef1ec;padding:10px;overflow-x:auto}code{font-family:ui-monospace,Consolas,monospace}@media (prefers-color-scheme:dark){body{background:#141715;color:#e7ebe7}h1,h2{color:#6fb183}pre{background:#232824}th,td{border-color:#333a35}a{color:#9ccfab}}</style></head><body><h1 id="rakennushaku-menetelmät-ja-lähteet">Rakennushaku – menetelmät ja
 lähteet</h1>
-<p><strong>Versio:</strong> 0.6.0 · <strong>Päivitetty:</strong>
-4.11.2026<br />
+<p><strong>Versio:</strong> 0.7.0 · <strong>Päivitetty:</strong>
+24.11.2026<br />
 <strong>Tekijät:</strong> Miiro Jääskeläinen ja Suvi Karirinne,
 Seinäjoen ammattikorkeakoulu (SEAMK), Maatalous ja energia
 -tutkimusryhmä<br />
@@ -620,11 +620,12 @@ sarakkeeksi G myöhempää käyttöä varten.</p>
 laskentamoottori (<code>web/engine.js</code>) antaa samat tulokset kuin
 Python-malli; <code>web/check_equivalence.py</code> vertaa niitä 14
 skenaariossa, myös lämmitystavat (ero 0,000 kWh/h).</li>
-<li><strong>Automaattiset testit.</strong> 41 testiä kattavat
-aikakannan, kesäajan, tiedostojen jäsennyksen, rajapintavastausten
-käsittelyn, kalibrointitavat, lämmitystavat, optiot, vientimuodot ja
-3D-näkymän tiedostot (<code>pytest</code>). GitHub Actions ajaa testit
-ja vastaavuustarkistuksen jokaisesta muutoksesta.</li>
+<li><strong>Automaattiset testit.</strong> 44 Python-testiä ja 9
+lidar-moduulin Node-testiä; Python-testit kattavat aikakannan, kesäajan,
+tiedostojen jäsennyksen, rajapintavastausten käsittelyn,
+kalibrointitavat, lämmitystavat, optiot, vientimuodot ja 3D-näkymän
+tiedostot (<code>pytest</code>). GitHub Actions ajaa testit ja
+vastaavuustarkistuksen jokaisesta muutoksesta.</li>
 <li><strong>Live-testit 31.10.2026.</strong> MML (osoitehaku,
 kiinteistöhaku pisteellä ja tunnuksella, rakennukset, ortokuva), FMI
 (asemat, vuoden 2025 tuntisarja), Open-Meteo ja Sähkötin (2023–2026)
@@ -636,14 +637,78 @@ CesiumJS 1.146.0 [26] valinnaisena. Molemmat testattiin selaimessa
 href="HTTP:llä" class="uri">HTTP:llä</a> jaettu tiedosto ja
 Python-palvelin.</li>
 </ul>
+<h3 id="rakennusten-koko-ja-kattomuoto-laserkeilauksesta">Rakennusten
+koko ja kattomuoto laserkeilauksesta</h3>
+<p>Valituille rakennuksille voi hakea korkeuden ja kattomuodon MML:n
+avoimesta <strong>Laserkeilausaineisto 0,5 p</strong> -aineistosta [27]
+(CC BY 4.0). Aineisto on luokiteltu pistepilvi, noin 0,5 pistettä/m²
+(pisteväli noin 1,4 m), korkeuden keskivirhe enintään 10 cm. Se jaetaan
+3 × 3 km:n karttalehtinä (TM35, 1:5000) LAZ-muodossa Paikkatiedon
+tiedostopalvelusta (OGC API Processes, prosessi
+<code>laserkeilausaineisto_05_karttalehti</code>) [28] samalla
+API-avaimella kuin rakennushaku.</p>
+<ul>
+<li><strong>Kulku.</strong> Valittujen rakennusten pohjat muunnetaan
+ETRS-TM35FIN-koordinaatteihin (Krügerin sarjat GRS80-ellipsoidilla [29];
+tarkistettu PROJ-kirjastoa vasten, ero alle 1 mm). Alueen karttalehdet
+päätellään TM35-lehtijaosta [30], aineisto tilataan ja ladataan, ja
+LAZ-tiedostot puretaan selaimessa laz-perf-kirjastolla [31].
+Python-palvelinversiossa palvelin vain välittää pyynnöt, koska API-avain
+on siellä. Laskenta on molemmissa versioissa sama
+(<code>static/lidar.js</code>).</li>
+<li><strong>Maanpinta</strong> = maapisteiden (luokka 2) mediaani 12 m:n
+vyöhykkeellä pohjan ulkopuolella.</li>
+<li><strong>Kattopisteet</strong> = luokan 1 pisteet (rakennukset ovat
+aineistossa luokittelemattomia) vähintään 0,7 m pohjan sisäpuolella ja
+1,2–45 m maanpinnan yläpuolella. Kasvillisuus- ja virhepisteet jätetään
+pois.</li>
+<li><strong>Kattomuoto.</strong> Rakennuksen pääsuunta on pienimmän
+pohjaa ympäröivän suorakulmion pitkä sivu. Kattopisteiden korkeuteen
+poikittaissuunnassa u sovitetaan pienimmän neliösumman menetelmällä
+tasakatto (h = c), pulpettikatto (h = a + b·u) ja harjakatto (h = r −
+s·|u − u₀|, harja keskimmäisellä 40 %:lla leveydestä). Tasakatto
+valitaan, jos korkeuksien 10. ja 95. persentiilin ero on alle 0,8 m.
+Muuten valitaan harjakatto, jos sen selitysaste on vähintään 0,5 ja
+vähintään 0,05 parempi kuin pulpettikaton, ja pulpettikatto, jos sen
+selitysaste on vähintään 0,5. Muuten katto on <em>monimuotoinen</em> ja
+korkeutena käytetään keskiarvoa. Rajat ovat omia oletuksia. Kaltevuus =
+atan(kulmakerroin). Räystäs on mallin korkeus seinien kohdalla
+(harjakatolla kummankin räystään keskiarvo) ja harja mallin huippu.</li>
+<li><strong>Tilavuus</strong> = mallin korkeus integroituna pohjan yli
+(1 m:n ruudukko). <strong>Keskikorkeus</strong> = tilavuus / pohjan
+ala.</li>
+<li><strong>Pohja keilauksen mukaan</strong> = 2 m:n ruudut, joissa on
+luokan 1 piste yli 2 m:n korkeudella, sulkeutumalla yhdellä ruudulla
+täydennettynä ja pohjaan yhteydessä. Jos keilattu pohja on yli 20 %
+suurempi kuin MML:n, rakennusta on ehkä laajennettu, siinä on katos tai
+viereinen rakennus on kiinni. Jos se on yli 20 % pienempi, osa on ehkä
+purettu tai puuston peitossa. Jos kattopisteitä on vähän tai pohjasta on
+peittynyt alle 30 %, rakennus ilmoitetaan <em>ei näy aineistossa</em>
+(purettu, keilauksen jälkeen rakennettu tai puuston peitossa).</li>
+<li><strong>Kerrokset.</strong> Asuin- ja toimistorakennuksille
+kerrosluku arvioidaan räystään korkeudesta (kerros noin 3 m, oma
+oletus). Kortti tarjoaa painikkeen, joka päivittää lämmitetyn alan
+(pohja × kerrokset tai keilattu pohja × kerrokset). Tuotantorakennukset
+ovat yksikerroksisia.</li>
+<li><strong>Käyttö mallissa.</strong> Tulokset näkyvät rakennuskortissa
+ja 3D-näkymässä: katto piirretään kymmenenä harjan suuntaisena kaistana,
+joiden korkeus seuraa kattomallia. Lämmöntarpeen malli (luku 7) ei vielä
+käytä korkeutta tai tilavuutta suoraan. Vaikutus tulee lämmitetyn alan
+kautta, jos käyttäjä hyväksyy ehdotuksen.</li>
+<li><strong>Testaus.</strong> Synteettinen pistepilvi
+(<code>tests/data/make_lidar_fixture.py</code>) sisältää harjakattoisen
+hallin (räystäs 4,0 m, harja 7,0 m, 16,7°), tasakattoisen talon (6,2 m),
+puretun rakennuksen, laajennetun pulpettikattoisen rakennuksen ja puun.
+Tunnistus palauttaa nämä räystään ja harjan osalta 0,3 m:n tarkkuudella
+(<code>tests/js/test_lidar.js</code>).</li>
+</ul>
 <h3 id="d-näkymä">3D-näkymä</h3>
 <ul>
 <li><strong>Muoto.</strong> Rakennuksen pohja on MML:n Maastotietokannan
 alue [2]. Pistemäinen kohde esitetään 10 × 10 m neliönä.</li>
-<li><strong>Korkeus</strong> = kerrosluku × 3,5 m (oma oletus).
-Maastotietokannassa on kerrosluku muttei korkeutta; kattomuotoja ei
-mallinneta. Esimerkiksi yksikerroksinen kasvattamo on 3,5 m, vaikka
-harja on korkeampi.</li>
+<li><strong>Korkeus ja kattomuoto</strong> laserkeilauksesta, jos se on
+haettu (edellinen kohta). Muuten korkeus = kerrosluku × 3,5 m (oma
+oletus); Maastotietokannassa on kerrosluku muttei korkeutta.</li>
 <li><strong>Väri.</strong> Laskennan jälkeen väri on lineaarinen
 asteikko rakennuksen mallinnetusta vuotuisesta lämmöntarpeesta tai
 sähkönkulutuksesta (luku 7) nollasta suurimpaan rakennukseen. Ennen
@@ -830,11 +895,22 @@ vuosisumma, lämmityksen osuus tulee mallin oletusparametreista.
 Suositus: anna kuukausitiedot (Datahub) tai lämmityksen alamittarin
 lukema. Lämpöpumpun SCOP on vakio, joten ilma-vesilämpöpumpun talven
 lämmityssähkö jää liian pieneksi.</li>
-<li><strong>3D-näkymän korkeudet ja maasto</strong> (pieni). Korkeudet
-ovat arvioita eikä maastoa ole. Näkymä havainnollistaa kulutuksen
-jakautumista, mutta sitä ei pidä käyttää esimerkiksi aurinkopaneelien
-varjostuksen arviointiin. Suositus: MML:n laserkeilausaineistosta voisi
-johtaa todelliset korkeudet ja kattomuodot.</li>
+<li><strong>Laserkeilausanalyysin rajat</strong> (keskisuuri). 0,5 p/m²
+riittää korkeuteen ja yksinkertaiseen kattomuotoon, mutta ei katon
+yksityiskohtiin, kuten taitekattoihin, kattoikkunoihin tai
+IV-konehuoneisiin. Rakennukset ovat aineistossa luokassa 1 yhdessä
+muiden luokittelemattomien kohteiden kanssa, joten rakennuksen päällä
+olevat puut ja rakennelmat voivat vääristää tulosta. Keilaus voi olla
+vuosia vanha; vuosi näytetään tuloksessa. Analyysiä ei ole vielä ajettu
+oikeaa MML:n palvelua vasten, koska kehitysympäristöstä ei ole sinne
+yhteyttä. Myös se, salliiko tiedostopalvelu suoran selainkäytön (CORS),
+on varmistamatta. Prosessin syötteet luetaan prosessikuvauksesta ajon
+aikana. Suositus: testaa oikealla API-avaimella ennen julkaisua; jos
+selainkäyttö estyy, käytä Python-palvelinversiota.</li>
+<li><strong>3D-näkymän maasto</strong> (pieni). Rakennukset seisovat
+tasaisella maalla. Laserkeilattuja korkeuksia voi käyttää
+havainnollistukseen, mutta ei esimerkiksi aurinkopaneelien varjostuksen
+arviointiin.</li>
 </ol>
 <h2 id="lähdeluettelo">13. Lähdeluettelo</h2>
 <p>Verkkosivujen sisältö ja rajapintojen toiminta on tarkistettu
@@ -1014,6 +1090,42 @@ Käyttö: 3D-näkymä, oletus (sisältyy sovellukseen).</p>
 class="uri">https://cesium.com/platform/cesiumjs/</a><br />
 Käyttö: 3D-näkymä, valinnainen (ladataan jsDelivr-palvelusta käytön
 aikana).</p>
+<p><strong>[27] Maanmittauslaitos. Laserkeilausaineisto 0,5 p. CC BY
+4.0.</strong><br />
+<a target="_blank" rel="noopener" href="https://www.maanmittauslaitos.fi/en/node/13294"
+class="uri">https://www.maanmittauslaitos.fi/en/node/13294</a><br />
+Käyttö: rakennusten korkeus, kattomuoto, tilavuus ja pohjan tarkistus.
+Luokat ja jako 3 × 3 km:n lehtiin: metatieto <a
+href="https://www.paikkatietohakemisto.fi/geonetwork/srv/api/records/a495a8ac-96ca-4ebf-927a-72a0e4881795"
+class="uri">https://www.paikkatietohakemisto.fi/geonetwork/srv/api/records/a495a8ac-96ca-4ebf-927a-72a0e4881795</a></p>
+<p><strong>[28] Maanmittauslaitos. Paikkatiedon tiedostopalvelu (OGC API
+Processes), tekninen kuvaus.</strong><br />
+<a
+href="https://www.maanmittauslaitos.fi/paikkatiedon-tiedostopalvelu/tekninen-kuvaus"
+class="uri">https://www.maanmittauslaitos.fi/paikkatiedon-tiedostopalvelu/tekninen-kuvaus</a><br />
+Käyttö: laserkeilausaineiston tilaus karttalehdittäin
+(<code>laserkeilausaineisto_05_karttalehti</code>), työn tila ja
+lataus.</p>
+<p><strong>[29] JHS 154. ETRS89-järjestelmään liittyvät
+karttaprojektiot, tasokoordinaatistot ja karttalehtijako.</strong>
+Julkisen hallinnon suositus. Tiivistelmä: Maanmittauslaitos, <em>The
+Finnish Coordinate Reference Systems</em>.<br />
+<a
+href="https://www.maanmittauslaitos.fi/sites/maanmittauslaitos.fi/files/old/Finnish_Coordinate_Systems.pdf"
+class="uri">https://www.maanmittauslaitos.fi/sites/maanmittauslaitos.fi/files/old/Finnish_Coordinate_Systems.pdf</a><br />
+Käyttö: ETRS-TM35FIN-projektio (GRS80, keskimeridiaani 27°, k₀ 0,9996)
+ja TM35-karttalehtijako.</p>
+<p><strong>[30] Maanmittauslaitos. UTM-lehtijako (TM35).</strong><br />
+<a target="_blank" rel="noopener" href="https://www.maanmittauslaitos.fi/en/node/15528"
+class="uri">https://www.maanmittauslaitos.fi/en/node/15528</a><br />
+Käyttö: 1:5000-karttalehden (3 × 3 km) nimi koordinaateista; tarkistettu
+esimerkkiä L4133B3 (E 383 000–386 000, N 6 672 000–6 675 000)
+vastaan.</p>
+<p><strong>[31] Hobu, Inc. laz-perf 0.0.7. Apache-2.0.</strong><br />
+<a target="_blank" rel="noopener" href="https://github.com/hobuinc/laz-perf"
+class="uri">https://github.com/hobuinc/laz-perf</a><br />
+Käyttö: LAZ-tiedostojen purku selaimessa (WebAssembly; sisältyy
+sovellukseen).</p>
 <h2 id="tekoälyn-käyttö">14. Tekoälyn käyttö</h2>
 <p>Sovelluksen koodin, testien ja tämän dokumentin laatimisessa on
 käytetty tekoälyä tekijöiden työvälineenä. Lähteet on haettu ja niiden

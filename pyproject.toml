@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rakennushaku"
-version = "0.6.0"
+version = "0.7.0"
 description = "Tilan lämmitettävät rakennukset ja tunnittainen energiaprofiili Maatilan hybridienergialaskuriin"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -33,7 +33,7 @@ rakennushaku = "rakennushaku.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-rakennushaku = ["static/*", "static/vendor/leaflet/*", "static/vendor/leaflet/images/*", "static/vendor/maplibre/*", "static/vendor/barlow-condensed/*", "static/brand/*"]
+rakennushaku = ["static/*", "static/vendor/leaflet/*", "static/vendor/leaflet/images/*", "static/vendor/maplibre/*", "static/vendor/barlow-condensed/*", "static/vendor/laz-perf/*", "static/brand/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 LAT0, LON0 = 62.79, 22.84  # Seinäjoki area
@@ -133,11 +134,15 @@ def sahkotin_csv(start: str, end: str) -> str:
 
 
 class FakeResponse:
-    def __init__(self, text: str, status: int = 200, ctype: str = "application/json"):
-        self.text = text
+    def __init__(self, text: str | bytes, status: int = 200, ctype: str = "application/json"):
+        self.content = text if isinstance(text, bytes) else text.encode()
+        self.text = text if isinstance(text, str) else ""
         self.status_code = status
-        self.content = text.encode()
-        self.headers = {"Content-Type": ctype}
+        self.headers = {"Content-Type": ctype, "Content-Length": str(len(self.content))}
+
+    def iter_content(self, size=65536):
+        for i in range(0, len(self.content), size):
+            yield self.content[i:i + size]
 
     def json(self):
         return json.loads(self.text)
@@ -156,16 +161,29 @@ class FakeSession:
 
     def __init__(self, fmi_drop_every: int = 0):
         self.calls: list[tuple[str, dict]] = []
+        self.posts: list[tuple[str, dict, dict]] = []
         self.headers: dict = {}
         self.fmi_drop_every = fmi_drop_every
+        self.lidar_polls = 0
 
-    def get(self, url, params=None, timeout=None):
+    def post(self, url, params=None, json=None, timeout=None):
+        params = dict(params or {})
+        self.posts.append((url, params, json))
+        if params.get("api-key") == "bad":
+            return FakeResponse("forbidden", 403)
+        if url.endswith("/processes/laserkeilausaineisto_05_karttalehti/execution"):
+            return FakeResponse(json_dumps({"jobID": "job-1", "status": "accepted"}), 201)
+        return FakeResponse("not found", 404)
+
+    def get(self, url, params=None, timeout=None, stream=False):
         params = dict(params or {})
         if "?" in url:
             params.update({k: v[0] for k, v in parse_qs(urlparse(url).query).items()})
         self.calls.append((url, params))
         if params.get("api-key") == "bad":
             return FakeResponse("forbidden", 403)
+        if "/tiedostopalvelu/" in url:
+            return self._lidar(url)
         if "PalstanSijaintitiedot" in url:
             if "kiinteistotunnus" in params and params["kiinteistotunnus"] != "99940100030025":
                 return FakeResponse(json.dumps({"type": "FeatureCollection", "features": []}))
@@ -182,3 +200,35 @@ class FakeSession:
         if "archive" in url:
             return FakeResponse(open_meteo(params["start_date"], params["end_date"]))
         return FakeResponse("not found", 404)
+
+
+# --------------------------------------------------------------------------- NLS file service (laser scanning)
+from json import dumps as json_dumps  # noqa: E402
+
+LIDAR_FIXTURE = Path(__file__).parent / "data" / "lidar_fixture.laz"
+LIDAR_DESC = {"id": "laserkeilausaineisto_05_karttalehti", "inputs": {
+    "mapSheetInput": {"schema": {"type": "array", "items": {"type": "string"}}},
+    "fileFormatInput": {"schema": {"type": "string", "enum": ["LAZ"]}},
+    "dataSetInput": {"minOccurs": 1, "schema": {"type": "string", "enum": ["laserkeilausaineisto_05_2022", "laserkeilausaineisto_05_2023"]}}}}
+
+
+def _lidar(self, url):
+    base = "https://avoin-paikkatieto.maanmittauslaitos.fi/tiedostopalvelu"
+    if url.endswith("/processes/laserkeilausaineisto_05_karttalehti"):
+        return FakeResponse(json_dumps(LIDAR_DESC))
+    if url.endswith("/jobs/job-1"):
+        self.lidar_polls += 1
+        if self.lidar_polls == 1:
+            return FakeResponse(json_dumps({"jobID": "job-1", "status": "running", "progress": 40}))
+        return FakeResponse(json_dumps({"jobID": "job-1", "status": "successful", "progress": 100}))
+    if url.endswith("/jobs/job-1/results"):
+        return FakeResponse(json_dumps({"results": [
+            {"path": f"{base}/dl/v1/job-1/L4133B3.laz", "format": "LAZ", "mapSheetNumber": "L4133B3", "length": LIDAR_FIXTURE.stat().st_size},
+            {"path": f"{base}/dl/v1/job-1/L4133B3_metadata.xml", "format": "XML"}],
+            "zipPath": f"{base}/dl/v1/uncompressed/job-1"}))
+    if url.endswith("/dl/v1/job-1/L4133B3.laz"):
+        return FakeResponse(LIDAR_FIXTURE.read_bytes(), ctype="application/octet-stream")
+    return FakeResponse("not found", 404)
+
+
+FakeSession._lidar = _lidar

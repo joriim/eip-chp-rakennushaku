@@ -142,12 +142,14 @@
       viewer.entities.removeAll();
       for (const k in info) delete info[k];
       pop.hidden = true;
+      let n = 0;   // a building can have several pieces (roof strips, parts of a multipolygon)
       for (const f of sc.features.features) {
         const polys = f.geometry.type === "MultiPolygon" ? f.geometry.coordinates : [f.geometry.coordinates];
-        polys.forEach((rings, i) => {
-          info[`${f.properties.id}-${i}`] = f.properties;
+        polys.forEach((rings) => {
+          const eid = `${f.properties.id}-${n++}`;
+          info[eid] = f.properties;
           viewer.entities.add({
-            id: `${f.properties.id}-${i}`,
+            id: eid,
             name: plain(f.properties.name),
             polygon: {
               hierarchy: C.Cartesian3.fromDegreesArray(rings[0].flat()),
