@@ -80,18 +80,29 @@
   const layers = { area: null, buildings: L.layerGroup().addTo(map) };
   const shapes = {}; // building id -> leaflet layer
 
+  // Base map: OpenStreetMap by default; MML layers are offered when a key exists. The viewer's choice is remembered.
+  const BASE_KEY = "rakennushaku.basemap.v1";
+  let baseName = "OpenStreetMap";
+  try { baseName = localStorage.getItem(BASE_KEY) || baseName; } catch (_) { /* storage blocked */ }
+  map.on("baselayerchange", (e) => {
+    baseName = e.name;
+    try { localStorage.setItem(BASE_KEY, baseName); } catch (_) { /* storage blocked */ }
+    if (typeof refresh3d === "function") refresh3d();
+  });
+
   function initBaseLayers() {
     if (!META.has_mml_key) return;
     const orto = L.tileLayer("/tiles/ortokuva/{z}/{x}/{y}", { maxZoom: 20, maxNativeZoom: 15, attribution: "&copy; MML" });
     const tausta = L.tileLayer("/tiles/taustakartta/{z}/{x}/{y}", { maxZoom: 20, maxNativeZoom: 16, attribution: "&copy; MML" });
-    L.control.layers({ "MML ortokuva": orto, "MML taustakartta": tausta, "OpenStreetMap": osm }, null, { position: "topright" }).addTo(map);
-    map.removeLayer(osm);
-    orto.addTo(map);
+    const bases = { "OpenStreetMap": osm, "MML ortokuva": orto, "MML taustakartta": tausta };
+    L.control.layers(bases, null, { position: "topright" }).addTo(map);
+    const pick = bases[baseName] || osm;
+    if (pick !== osm) { map.removeLayer(osm); pick.addTo(map); }
   }
 
-  // Raster tiles for the 3D view: MML orthophoto through the local tile proxy, OSM without a key.
+  // Raster tiles for the 3D view: the MML orthophoto when it is the chosen base map, otherwise OSM.
   function tileTemplate() {
-    return META.has_mml_key
+    return META.has_mml_key && baseName === "MML ortokuva"
       ? { url: location.origin + "/tiles/ortokuva/{z}/{x}/{y}", maxzoom: 15, attribution: "&copy; Maanmittauslaitos" }
       : { url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", maxzoom: 19, attribution: "&copy; OpenStreetMap" };
   }

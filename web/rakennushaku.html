@@ -1093,7 +1093,7 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space:
       <div class="step-head"><span class="num" aria-hidden="true">1</span><h2>Tila</h2></div>
       <form id="ktForm" class="row">
         <label for="kt" class="sr">Kiinteistötunnus tai osoite</label>
-        <input id="kt" name="kt" type="search" placeholder="Osoite tai kiinteistötunnus, esim. Kampusranta 11, Seinäjoki" autocomplete="off" autocapitalize="words" enterkeyhint="search" spellcheck="false">
+        <input id="kt" name="kt" type="text" inputmode="text" placeholder="Osoite tai kiinteistötunnus, esim. Kampusranta 11, Seinäjoki" autocomplete="off" autocapitalize="words" enterkeyhint="search" spellcheck="false">
         <button type="submit" class="btn primary">Hae</button>
       </form>
       <div class="row wrap">
@@ -1207,7 +1207,7 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space:
 
 <dialog id="docsDialog" class="docs-dialog" aria-label="Menetelmät ja lähteet"><header><strong>Menetelmät, oletukset ja lähteet</strong><button type="button" class="btn small" id="docsClose">Sulje</button></header><div class="docs-body"><h1 id="rakennushaku-menetelmät-ja-lähteet">Rakennushaku – menetelmät ja
 lähteet</h1>
-<p><strong>Versio:</strong> 0.7.1 · <strong>Päivitetty:</strong>
+<p><strong>Versio:</strong> 0.7.2 · <strong>Päivitetty:</strong>
 26.11.2026<br />
 <strong>Tekijät:</strong> Miiro Jääskeläinen ja Suvi Karirinne,
 Seinäjoen ammattikorkeakoulu (SEAMK), Maatalous ja energia
@@ -1921,8 +1921,10 @@ asteikko rakennuksen mallinnetusta vuotuisesta lämmöntarpeesta tai
 sähkönkulutuksesta (luku 7) nollasta suurimpaan rakennukseen. Ennen
 laskentaa väri kertoo valinnan: lämpö, vain sähkö, kiinteistön muut
 rakennukset, naapurit.</li>
-<li><strong>Taustakuva</strong> on MML:n ortokuva [1] (MML-avaimella)
-tai OpenStreetMap.</li>
+<li><strong>Taustakuva</strong> on oletuksena OpenStreetMap.
+MML-avaimella voi valita kartan oikeasta yläkulmasta MML:n ortokuvan tai
+taustakartan [1]; valinta muistetaan selaimessa, ja 3D-näkymä käyttää
+ortokuvaa, kun se on valittu.</li>
 <li><strong>Maasto.</strong> Rakennukset seisovat ellipsoidilla eli
 tasaisella maalla. Cesiumin oma maastomalli (Cesium ion) vaatisi
 erillisen tunnuksen ja lähettäisi pyyntöjä kolmannelle osapuolelle,
@@ -4384,6 +4386,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   const layers = { area: null, buildings: L.layerGroup().addTo(map) };
   const shapes = {}; // building id -> leaflet layer
 
+  // Base map: OpenStreetMap by default; MML layers are offered when a key exists. The viewer's choice is remembered.
+  const BASE_KEY = "rakennushaku.basemap.v1";
+  let baseName = "OpenStreetMap";
+  try { baseName = localStorage.getItem(BASE_KEY) || baseName; } catch (_) { /* storage blocked */ }
+  map.on("baselayerchange", (e) => {
+    baseName = e.name;
+    try { localStorage.setItem(BASE_KEY, baseName); } catch (_) { /* storage blocked */ }
+    if (typeof refresh3d === "function") refresh3d();
+  });
+
   let baseCtrl = null, orto = null, tausta = null;
   function initBaseLayers() {
     if (baseCtrl) { map.removeControl(baseCtrl); baseCtrl = null; }
@@ -4394,15 +4406,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       + `&TILEMATRIXSET=WGS84_Pseudo-Mercator&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=${fmt}&api-key=${encodeURIComponent(k)}`;
     orto = L.tileLayer(wm("ortokuva", "image/jpeg"), { maxZoom: 20, maxNativeZoom: 15, attribution: "&copy; MML" });
     tausta = L.tileLayer(wm("taustakartta", "image/png"), { maxZoom: 20, maxNativeZoom: 16, attribution: "&copy; MML" });
-    baseCtrl = L.control.layers({ "MML ortokuva": orto, "MML taustakartta": tausta, "OpenStreetMap": osm }, null, { position: "topright" }).addTo(map);
-    if (map.hasLayer(osm)) map.removeLayer(osm);
-    orto.addTo(map);
+    const bases = { "OpenStreetMap": osm, "MML ortokuva": orto, "MML taustakartta": tausta };
+    baseCtrl = L.control.layers(bases, null, { position: "topright" }).addTo(map);
+    const pick = bases[baseName] || osm;
+    if (pick !== osm) { if (map.hasLayer(osm)) map.removeLayer(osm); pick.addTo(map); }
+    else if (!map.hasLayer(osm)) osm.addTo(map);
   }
 
-  // Raster tiles for the 3D view: MML orthophoto with the viewer's own key, OSM without one.
+  // Raster tiles for the 3D view: the MML orthophoto when it is the chosen base map, otherwise OSM.
   function tileTemplate() {
     const k = mmlKey();
-    return k
+    return k && baseName === "MML ortokuva"
       ? { url: `${RH.WMTS}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ortokuva&STYLE=default`
           + `&TILEMATRIXSET=WGS84_Pseudo-Mercator&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/jpeg&api-key=${encodeURIComponent(k)}`,
           maxzoom: 15, attribution: "&copy; Maanmittauslaitos" }
@@ -5589,7 +5603,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     const ys = $("#year");
     const cy = new Date().getFullYear();
     for (let y = cy; y >= cy - 8; y--) ys.insertAdjacentHTML("beforeend", `<option value="${y}">${y}</option>`);
-    META = { version: "0.7.1 (selain)", use_types: RH.USE_TYPES, attribution: { ...RH.ATTR, prices: RH.PRICE_ATTR }, has_mml_key: false,
+    META = { version: "0.7.2 (selain)", use_types: RH.USE_TYPES, attribution: { ...RH.ATTR, prices: RH.PRICE_ATTR }, has_mml_key: false,
       heat_units: Object.fromEntries(Object.entries(RH.HEAT_UNITS).map(([k, v]) => [k, v.label])), heating_systems: RH.HEATING_SYSTEMS };
     try { $("#mmlKey").value = localStorage.getItem(KEY_STORE) || ""; } catch (_) { /* storage unavailable */ }
     META.has_mml_key = !!mmlKey();

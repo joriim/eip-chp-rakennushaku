@@ -1,5 +1,10 @@
 # Muutokset
 
+## 0.7.2 – 2026-11-26
+
+- **Taustakartta on oletuksena OpenStreetMap.** MML:n ortokuvan tai taustakartan voi valita oikeasta yläkulmasta MML-avaimella; valinta muistetaan selaimessa, ja 3D-näkymä käyttää ortokuvaa, kun se on valittu.
+- Hakukenttä on nimenomaisesti tekstikenttä (`type="text"`, `inputmode="text"`), jotta Android avaa kirjainnäppäimistön.
+
 ## 0.7.1 – 2026-11-26
 
 - **Hakukenttä avaa tavallisen näppäimistön.** Kenttä oli merkitty numerokentäksi, joten puhelin avasi vain numeronäppäimet eikä osoitetta voinut kirjoittaa. Kenttä hyväksyy osoitteen tai kiinteistötunnuksen.

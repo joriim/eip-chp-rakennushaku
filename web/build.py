@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "src" / "rakennushaku" / "static"
 WEB = ROOT / "web"
-VERSION = "0.7.1"
+VERSION = "0.7.2"
 
 
 def sub(text: str, old: str, new: str) -> str:
@@ -88,15 +88,17 @@ def ui_js() -> str:
       + `&TILEMATRIXSET=WGS84_Pseudo-Mercator&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=${fmt}&api-key=${encodeURIComponent(k)}`;
     orto = L.tileLayer(wm("ortokuva", "image/jpeg"), { maxZoom: 20, maxNativeZoom: 15, attribution: "&copy; MML" });
     tausta = L.tileLayer(wm("taustakartta", "image/png"), { maxZoom: 20, maxNativeZoom: 16, attribution: "&copy; MML" });
-    baseCtrl = L.control.layers({ "MML ortokuva": orto, "MML taustakartta": tausta, "OpenStreetMap": osm }, null, { position: "topright" }).addTo(map);
-    if (map.hasLayer(osm)) map.removeLayer(osm);
-    orto.addTo(map);
+    const bases = { "OpenStreetMap": osm, "MML ortokuva": orto, "MML taustakartta": tausta };
+    baseCtrl = L.control.layers(bases, null, { position: "topright" }).addTo(map);
+    const pick = bases[baseName] || osm;
+    if (pick !== osm) { if (map.hasLayer(osm)) map.removeLayer(osm); pick.addTo(map); }
+    else if (!map.hasLayer(osm)) osm.addTo(map);
   }
 
-  // Raster tiles for the 3D view: MML orthophoto with the viewer's own key, OSM without one.
+  // Raster tiles for the 3D view: the MML orthophoto when it is the chosen base map, otherwise OSM.
   function tileTemplate() {
     const k = mmlKey();
-    return k
+    return k && baseName === "MML ortokuva"
       ? { url: `${RH.WMTS}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ortokuva&STYLE=default`
           + `&TILEMATRIXSET=WGS84_Pseudo-Mercator&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/jpeg&api-key=${encodeURIComponent(k)}`,
           maxzoom: 15, attribution: "&copy; Maanmittauslaitos" }

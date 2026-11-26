@@ -1,6 +1,6 @@
 <!doctype html><html lang="fi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rakennushaku – menetelmät ja lähteet</title><style>body{font:15px/1.55 'Public Sans',system-ui,sans-serif;max-width:860px;margin:2rem auto;padding:0 16px;color:#1d231f;background:#fff}h1,h2{color:#2e6b3f}table{border-collapse:collapse;font-size:13px;display:block;overflow-x:auto}th,td{border-bottom:1px solid #d9ded8;padding:4px 6px;text-align:left;vertical-align:top}pre{background:#eef1ec;padding:10px;overflow-x:auto}code{font-family:ui-monospace,Consolas,monospace}@media (prefers-color-scheme:dark){body{background:#141715;color:#e7ebe7}h1,h2{color:#6fb183}pre{background:#232824}th,td{border-color:#333a35}a{color:#9ccfab}}</style></head><body><h1 id="rakennushaku-menetelmät-ja-lähteet">Rakennushaku – menetelmät ja
 lähteet</h1>
-<p><strong>Versio:</strong> 0.7.1 · <strong>Päivitetty:</strong>
+<p><strong>Versio:</strong> 0.7.2 · <strong>Päivitetty:</strong>
 26.11.2026<br />
 <strong>Tekijät:</strong> Miiro Jääskeläinen ja Suvi Karirinne,
 Seinäjoen ammattikorkeakoulu (SEAMK), Maatalous ja energia
@@ -714,8 +714,10 @@ asteikko rakennuksen mallinnetusta vuotuisesta lämmöntarpeesta tai
 sähkönkulutuksesta (luku 7) nollasta suurimpaan rakennukseen. Ennen
 laskentaa väri kertoo valinnan: lämpö, vain sähkö, kiinteistön muut
 rakennukset, naapurit.</li>
-<li><strong>Taustakuva</strong> on MML:n ortokuva [1] (MML-avaimella)
-tai OpenStreetMap.</li>
+<li><strong>Taustakuva</strong> on oletuksena OpenStreetMap.
+MML-avaimella voi valita kartan oikeasta yläkulmasta MML:n ortokuvan tai
+taustakartan [1]; valinta muistetaan selaimessa, ja 3D-näkymä käyttää
+ortokuvaa, kun se on valittu.</li>
 <li><strong>Maasto.</strong> Rakennukset seisovat ellipsoidilla eli
 tasaisella maalla. Cesiumin oma maastomalli (Cesium ion) vaatisi
 erillisen tunnuksen ja lähettäisi pyyntöjä kolmannelle osapuolelle,

@@ -16,7 +16,7 @@ authors:
     given-names: "Suvi"
     orcid: "https://orcid.org/0000-0003-1000-557X"
     affiliation: "Seinäjoen ammattikorkeakoulu (SEAMK), Maatalous ja energia -tutkimusryhmä"
-version: "0.7.1"
+version: "0.7.2"
 date-released: "2026-11-26"
 license: MIT
 repository-code: "https://github.com/joriim/eip-chp-rakennushaku"

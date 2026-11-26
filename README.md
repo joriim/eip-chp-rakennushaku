@@ -2,7 +2,7 @@
 
 Rakennushaku muodostaa maatilan rakennuksille tunnittaisen sähkö- ja lämpöprofiilin **Maatilan hybridienergialaskuriin**. Profiili perustuu avoimeen paikkatietoon, tilan omaan kulutustietoon ja saman vuoden säähavaintoihin.
 
-**Versio 0.7.1 · prototyyppi** · EIP CHP Energiaälykäs eteläpohjalainen maatila · SEAMK, Maatalous ja energia -tutkimusryhmä
+**Versio 0.7.2 · prototyyppi** · EIP CHP Energiaälykäs eteläpohjalainen maatila · SEAMK, Maatalous ja energia -tutkimusryhmä
 
 - **Käytä selaimessa:** https://joriim.github.io/eip-chp-rakennushaku/ (GitHub Pages; vaatii Pages-julkaisun, ks. *Kehitys*), tai avaa tiedosto [`web/rakennushaku.html`](web/rakennushaku.html) omalla koneella.
 - **Menetelmät, oletukset ja lähteet:** [docs/MENETELMAT_JA_LAHTEET.md](docs/MENETELMAT_JA_LAHTEET.md)
@@ -79,7 +79,7 @@ Liitä aina valinnalla **Liitä määräten → Arvot**. Rivi 2 on 1.1. klo 00�
 | Ilmoitus tai oire | Syy ja ratkaisu |
 |---|---|
 | "rajapinta hylkäsi pyynnön (401/403)" | MML-avain puuttuu tai on virheellinen. Tarkista avain yläpalkista. |
-| Taustakartta on tyhjä ilman MML-avainta | OpenStreetMapin karttatiilet voivat estyä, kun tiedosto avataan omalta koneelta. Lisää MML-avain (ortokuva) tai käytä julkaistua sivua. |
+| Taustakartta on tyhjä ilman MML-avainta | OpenStreetMapin karttatiilet voivat estyä, kun tiedosto avataan omalta koneelta. Lisää MML-avain ja valitse oikeasta yläkulmasta MML:n ortokuva tai taustakartta, tai käytä julkaistua sivua. |
 | "Ulkolämpötilasarjasta puuttuu … tuntia" | Vuosi on kesken tai asemalta puuttuu dataa. Valitse päättynyt vuosi, toinen asema tai Open-Meteo. |
 | "Kulutustieto puuttuu … (tulos on mallin oletus)" | Piirille tai mittarille ei ole annettu kulutusta. Tulos ei silloin kuvaa tilaa. |
 | Huipputeho ylittää kattilan tehon | Profiili on liian piikikäs (esim. broilerierät samaan aikaan) tai kattilan teho on väärä. |
@@ -126,7 +126,7 @@ python docs/build_docs.py          # päivittää menetelmädokumentin (HTML vaa
 
 Viittaa ohjelmistoon tiedoston [CITATION.cff](CITATION.cff) tiedoilla. Zenodo-julkaisun jälkeen pysyvä DOI lisätään tähän.
 
-Jääskeläinen, M. & Karirinne, S. (2026). *Rakennushaku: tilan rakennukset ja tunnittainen energiaprofiili Maatilan hybridienergialaskuriin* (versio 0.7.1) [Tietokoneohjelma]. Seinäjoen ammattikorkeakoulu. https://github.com/joriim/eip-chp-rakennushaku
+Jääskeläinen, M. & Karirinne, S. (2026). *Rakennushaku: tilan rakennukset ja tunnittainen energiaprofiili Maatilan hybridienergialaskuriin* (versio 0.7.2) [Tietokoneohjelma]. Seinäjoen ammattikorkeakoulu. https://github.com/joriim/eip-chp-rakennushaku
 
 ## Tekijät ja tekijöiden panos
 

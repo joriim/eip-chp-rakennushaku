@@ -1,6 +1,6 @@
 # Rakennushaku – menetelmät ja lähteet
 
-**Versio:** 0.7.1 · **Päivitetty:** 26.11.2026  
+**Versio:** 0.7.2 · **Päivitetty:** 26.11.2026  
 **Tekijät:** Miiro Jääskeläinen ja Suvi Karirinne, Seinäjoen ammattikorkeakoulu (SEAMK), Maatalous ja energia -tutkimusryhmä  
 **Hanke:** EIP CHP Energiaälykäs eteläpohjalainen maatila (EU:n osarahoittama)  
 **Liittyy:** Maatilan hybridienergialaskuri, versio 0.9.3 [18]
@@ -188,7 +188,7 @@ Valituille rakennuksille voi hakea korkeuden ja kattomuodon MML:n avoimesta **La
 - **Muoto.** Rakennuksen pohja on MML:n Maastotietokannan alue [2]. Pistemäinen kohde esitetään 10 × 10 m neliönä.
 - **Korkeus ja kattomuoto** laserkeilauksesta, jos se on haettu (edellinen kohta). Muuten korkeus = kerrosluku × 3,5 m (oma oletus); Maastotietokannassa on kerrosluku muttei korkeutta.
 - **Väri.** Laskennan jälkeen väri on lineaarinen asteikko rakennuksen mallinnetusta vuotuisesta lämmöntarpeesta tai sähkönkulutuksesta (luku 7) nollasta suurimpaan rakennukseen. Ennen laskentaa väri kertoo valinnan: lämpö, vain sähkö, kiinteistön muut rakennukset, naapurit.
-- **Taustakuva** on MML:n ortokuva [1] (MML-avaimella) tai OpenStreetMap.
+- **Taustakuva** on oletuksena OpenStreetMap. MML-avaimella voi valita kartan oikeasta yläkulmasta MML:n ortokuvan tai taustakartan [1]; valinta muistetaan selaimessa, ja 3D-näkymä käyttää ortokuvaa, kun se on valittu.
 - **Maasto.** Rakennukset seisovat ellipsoidilla eli tasaisella maalla. Cesiumin oma maastomalli (Cesium ion) vaatisi erillisen tunnuksen ja lähettäisi pyyntöjä kolmannelle osapuolelle, joten sitä ei käytetä.
 - **Lataus.** MapLibre sisältyy sovellukseen ja käynnistyy vasta, kun 3D-näkymä avataan. Cesium ladataan jsDelivr-palvelusta ensimmäisellä käytöllä. Cesiumin laskentasäikeet ovat ES-moduuleja, joita selain ei käynnistä levyltä avatulla sivulla (file://), joten siellä Cesium-valinta on pois käytöstä. MapLibre 6 olisi samasta syystä toiminut vain verkossa, joten käytössä on version 5 yhtenäinen paketti.
 
