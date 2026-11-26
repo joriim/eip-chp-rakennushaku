@@ -869,6 +869,7 @@ input:hover, select:hover { border-color: var(--ink-3); }
 input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
 input:disabled, select:disabled { opacity: .55; cursor: not-allowed; }
 input[type="number"] { font-variant-numeric: tabular-nums; }
+input[type="search"] { -webkit-appearance: none; appearance: none; }
 input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(--accent); }
 
 .btn {
@@ -1092,7 +1093,7 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space:
       <div class="step-head"><span class="num" aria-hidden="true">1</span><h2>Tila</h2></div>
       <form id="ktForm" class="row">
         <label for="kt" class="sr">Kiinteistötunnus tai osoite</label>
-        <input id="kt" name="kt" placeholder="Kiinteistötunnus tai osoite, esim. Kampusranta 11, Seinäjoki" autocomplete="off" inputmode="numeric">
+        <input id="kt" name="kt" type="search" placeholder="Osoite tai kiinteistötunnus, esim. Kampusranta 11, Seinäjoki" autocomplete="off" autocapitalize="words" enterkeyhint="search" spellcheck="false">
         <button type="submit" class="btn primary">Hae</button>
       </form>
       <div class="row wrap">
@@ -1206,8 +1207,8 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space:
 
 <dialog id="docsDialog" class="docs-dialog" aria-label="Menetelmät ja lähteet"><header><strong>Menetelmät, oletukset ja lähteet</strong><button type="button" class="btn small" id="docsClose">Sulje</button></header><div class="docs-body"><h1 id="rakennushaku-menetelmät-ja-lähteet">Rakennushaku – menetelmät ja
 lähteet</h1>
-<p><strong>Versio:</strong> 0.7.0 · <strong>Päivitetty:</strong>
-24.11.2026<br />
+<p><strong>Versio:</strong> 0.7.1 · <strong>Päivitetty:</strong>
+26.11.2026<br />
 <strong>Tekijät:</strong> Miiro Jääskeläinen ja Suvi Karirinne,
 Seinäjoen ammattikorkeakoulu (SEAMK), Maatalous ja energia
 -tutkimusryhmä<br />
@@ -1826,7 +1827,7 @@ sarakkeeksi G myöhempää käyttöä varten.</p>
 laskentamoottori (<code>web/engine.js</code>) antaa samat tulokset kuin
 Python-malli; <code>web/check_equivalence.py</code> vertaa niitä 14
 skenaariossa, myös lämmitystavat (ero 0,000 kWh/h).</li>
-<li><strong>Automaattiset testit.</strong> 44 Python-testiä ja 9
+<li><strong>Automaattiset testit.</strong> 46 Python-testiä ja 9
 lidar-moduulin Node-testiä; Python-testit kattavat aikakannan, kesäajan,
 tiedostojen jäsennyksen, rajapintavastausten käsittelyn,
 kalibrointitavat, lämmitystavat, optiot, vientimuodot ja 3D-näkymän
@@ -4326,6 +4327,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     switch (u.pathname) {
       case "/api/property": return RH.fetchProperty(q.kt, key);
       case "/api/property-at": return RH.propertyAt(+q.lon, +q.lat, key);
+      case "/api/geocode": return { results: await RH.geocode(q.text, key) };
       case "/api/buildings": return { buildings: await RH.buildingsForArea(b.geometry, key) };
       case "/api/buildings-around": {
         const area = RH.circle(+q.lat, +q.lon, +q.r || 250);
@@ -4360,7 +4362,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     host.appendChild(t);
     while (host.children.length > 4) host.firstChild.remove();
     setTimeout(close, ms || (isError ? 10000 : 4000));
+    return t;
   }
+
+  // Property ID (KKK-RRR-YYYY-XXXX or 14 digits); anything else is searched as a street address.
+  const looksLikeKt = (s) => /^\s*\d{1,3}-\d{1,3}-\d{1,4}-\d{1,4}\s*$/.test(s) || /^\s*\d{14}\s*$/.test(s);
 
   async function busy(btn, label, fn) {
     const old = btn ? btn.textContent : null;
@@ -4411,19 +4417,26 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     $("#addBuilding").classList.toggle("active", m === "add-building");
     map.getContainer().style.cursor = m === "none" ? "" : "crosshair";
     if (m === "none") { b.hidden = true; return; }
+    // Picking works on the 2D map; on a phone the map may be scrolled out of sight under the panel.
+    if (typeof view !== "undefined" && view === "3d") setView("2d");
+    const r = map.getContainer().getBoundingClientRect();
+    if (r.top < 0 || r.bottom > window.innerHeight) map.getContainer().scrollIntoView({ behavior: "smooth", block: "center" });
     b.innerHTML = `<span>${esc(text)}</span><button type="button" id="cancelMode">Peruuta</button>`;
     b.hidden = false;
     $("#cancelMode").onclick = () => setMode("none");
   }
 
-  map.on("click", async (e) => {
-    const { lat, lng } = e.latlng;
+  map.on("click", (e) => onMapClick(e.latlng));
+
+  async function onMapClick({ lat, lng }) {
     if (mode === "pick-property") {
       setMode("none");
+      const t = toast("Haetaan kiinteistöä…", false, 60000);
       await busy(null, "", async () => {
         const p = await api(`/api/property-at?lat=${lat}&lon=${lng}`);
         await useProperty(p);
       });
+      if (t && t.remove) t.remove();
     } else if (mode === "pick-circle") {
       setMode("none");
       await busy(null, "", async () => {
@@ -4446,7 +4459,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       renderAll();
       focusBuilding(id);
     }
-  });
+  }
 
   function drawArea() {
     if (layers.area) { map.removeLayer(layers.area); layers.area = null; }
@@ -4479,7 +4492,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
       }
       lyr.bindTooltip(`<strong>${esc(b.name)}</strong><br>${inCalc(b)}<br>${esc(b.class_label)}${b.footprint_m2 ? `<br>${fmt(b.footprint_m2)} m²` : ""}`
         + `<br><small>Klikkaa: mukaan tai pois laskennasta</small>`, { className: "bt", sticky: true });
-      lyr.on("click", (ev) => { L.DomEvent.stopPropagation(ev); toggleHeated(b.id); focusBuilding(b.id); });
+      lyr.on("click", (ev) => {
+        L.DomEvent.stopPropagation(ev);
+        if (mode !== "none") { onMapClick(ev.latlng); return; }  // picking a property or a point, not this building
+        toggleHeated(b.id); focusBuilding(b.id);
+      });
       lyr.addTo(layers.buildings);
       shapes[b.id] = lyr;
     }
@@ -5252,8 +5269,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     const kt = $("#kt").value.trim();
     if (!kt) return;
     busy(e.submitter || $("#ktForm button"), "Haetaan…", async () => {
-      if (RH.looksLikeKt(kt)) { await useProperty(await api(`/api/property?kt=${encodeURIComponent(kt)}`)); return; }
-      const hits = await RH.geocode(kt, mmlKey());
+      if (looksLikeKt(kt)) { await useProperty(await api(`/api/property?kt=${encodeURIComponent(kt)}`)); return; }
+      const hits = (await api(`/api/geocode?text=${encodeURIComponent(kt)}`)).results || [];
       if (!hits.length) throw new Error(`Osoitetta "${kt}" ei löytynyt. Kokeile muotoa "Katu 12, Kunta" tai kiinteistötunnusta.`);
       const p = await api(`/api/property-at?lat=${hits[0].lat}&lon=${hits[0].lon}`);
       await useProperty(p);
@@ -5572,7 +5589,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     const ys = $("#year");
     const cy = new Date().getFullYear();
     for (let y = cy; y >= cy - 8; y--) ys.insertAdjacentHTML("beforeend", `<option value="${y}">${y}</option>`);
-    META = { version: "0.7.0 (selain)", use_types: RH.USE_TYPES, attribution: { ...RH.ATTR, prices: RH.PRICE_ATTR }, has_mml_key: false,
+    META = { version: "0.7.1 (selain)", use_types: RH.USE_TYPES, attribution: { ...RH.ATTR, prices: RH.PRICE_ATTR }, has_mml_key: false,
       heat_units: Object.fromEntries(Object.entries(RH.HEAT_UNITS).map(([k, v]) => [k, v.label])), heating_systems: RH.HEATING_SYSTEMS };
     try { $("#mmlKey").value = localStorage.getItem(KEY_STORE) || ""; } catch (_) { /* storage unavailable */ }
     META.has_mml_key = !!mmlKey();

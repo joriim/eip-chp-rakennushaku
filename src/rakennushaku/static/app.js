@@ -58,7 +58,11 @@
     host.appendChild(t);
     while (host.children.length > 4) host.firstChild.remove();
     setTimeout(close, ms || (isError ? 10000 : 4000));
+    return t;
   }
+
+  // Property ID (KKK-RRR-YYYY-XXXX or 14 digits); anything else is searched as a street address.
+  const looksLikeKt = (s) => /^\s*\d{1,3}-\d{1,3}-\d{1,4}-\d{1,4}\s*$/.test(s) || /^\s*\d{14}\s*$/.test(s);
 
   async function busy(btn, label, fn) {
     const old = btn ? btn.textContent : null;
@@ -100,19 +104,26 @@
     $("#addBuilding").classList.toggle("active", m === "add-building");
     map.getContainer().style.cursor = m === "none" ? "" : "crosshair";
     if (m === "none") { b.hidden = true; return; }
+    // Picking works on the 2D map; on a phone the map may be scrolled out of sight under the panel.
+    if (typeof view !== "undefined" && view === "3d") setView("2d");
+    const r = map.getContainer().getBoundingClientRect();
+    if (r.top < 0 || r.bottom > window.innerHeight) map.getContainer().scrollIntoView({ behavior: "smooth", block: "center" });
     b.innerHTML = `<span>${esc(text)}</span><button type="button" id="cancelMode">Peruuta</button>`;
     b.hidden = false;
     $("#cancelMode").onclick = () => setMode("none");
   }
 
-  map.on("click", async (e) => {
-    const { lat, lng } = e.latlng;
+  map.on("click", (e) => onMapClick(e.latlng));
+
+  async function onMapClick({ lat, lng }) {
     if (mode === "pick-property") {
       setMode("none");
+      const t = toast("Haetaan kiinteistöä…", false, 60000);
       await busy(null, "", async () => {
         const p = await api(`/api/property-at?lat=${lat}&lon=${lng}`);
         await useProperty(p);
       });
+      if (t && t.remove) t.remove();
     } else if (mode === "pick-circle") {
       setMode("none");
       await busy(null, "", async () => {
@@ -135,7 +146,7 @@
       renderAll();
       focusBuilding(id);
     }
-  });
+  }
 
   function drawArea() {
     if (layers.area) { map.removeLayer(layers.area); layers.area = null; }
@@ -168,7 +179,11 @@
       }
       lyr.bindTooltip(`<strong>${esc(b.name)}</strong><br>${inCalc(b)}<br>${esc(b.class_label)}${b.footprint_m2 ? `<br>${fmt(b.footprint_m2)} m²` : ""}`
         + `<br><small>Klikkaa: mukaan tai pois laskennasta</small>`, { className: "bt", sticky: true });
-      lyr.on("click", (ev) => { L.DomEvent.stopPropagation(ev); toggleHeated(b.id); focusBuilding(b.id); });
+      lyr.on("click", (ev) => {
+        L.DomEvent.stopPropagation(ev);
+        if (mode !== "none") { onMapClick(ev.latlng); return; }  // picking a property or a point, not this building
+        toggleHeated(b.id); focusBuilding(b.id);
+      });
       lyr.addTo(layers.buildings);
       shapes[b.id] = lyr;
     }
@@ -941,8 +956,12 @@
     const kt = $("#kt").value.trim();
     if (!kt) return;
     busy(e.submitter || $("#ktForm button"), "Haetaan…", async () => {
-      const p = await api(`/api/property?kt=${encodeURIComponent(kt)}`);
+      if (looksLikeKt(kt)) { await useProperty(await api(`/api/property?kt=${encodeURIComponent(kt)}`)); return; }
+      const hits = (await api(`/api/geocode?text=${encodeURIComponent(kt)}`)).results || [];
+      if (!hits.length) throw new Error(`Osoitetta "${kt}" ei löytynyt. Kokeile muotoa "Katu 12, Kunta" tai kiinteistötunnusta.`);
+      const p = await api(`/api/property-at?lat=${hits[0].lat}&lon=${hits[0].lon}`);
       await useProperty(p);
+      toast(`${hits[0].label} → kiinteistö ${p.display}`);
     });
   });
   $("#pickProperty").onclick = () => mode === "pick-property" ? setMode("none") : setMode("pick-property", "Klikkaa kiinteistöä kartalla");

@@ -2,7 +2,7 @@
 
 Rakennushaku muodostaa maatilan rakennuksille tunnittaisen sähkö- ja lämpöprofiilin **Maatilan hybridienergialaskuriin**. Profiili perustuu avoimeen paikkatietoon, tilan omaan kulutustietoon ja saman vuoden säähavaintoihin.
 
-**Versio 0.7.0 · prototyyppi** · EIP CHP Energiaälykäs eteläpohjalainen maatila · SEAMK, Maatalous ja energia -tutkimusryhmä
+**Versio 0.7.1 · prototyyppi** · EIP CHP Energiaälykäs eteläpohjalainen maatila · SEAMK, Maatalous ja energia -tutkimusryhmä
 
 - **Käytä selaimessa:** https://joriim.github.io/eip-chp-rakennushaku/ (GitHub Pages; vaatii Pages-julkaisun, ks. *Kehitys*), tai avaa tiedosto [`web/rakennushaku.html`](web/rakennushaku.html) omalla koneella.
 - **Menetelmät, oletukset ja lähteet:** [docs/MENETELMAT_JA_LAHTEET.md](docs/MENETELMAT_JA_LAHTEET.md)
@@ -95,7 +95,7 @@ Sovellus ei tallenna eikä lähetä kulutustietoja minnekään. Rajapinnoille l�
 
 ## Python-versio
 
-Sama sovellus paikallisena palvelimena (FastAPI). Rajapintakutsut tehdään palvelimelta, ja MML-avain pysyy palvelimella. Osoitehaku on vain selainversiossa.
+Sama sovellus paikallisena palvelimena (FastAPI). Rajapintakutsut tehdään palvelimelta, ja MML-avain pysyy palvelimella. Osoitehaku toimii molemmissa versioissa (`/api/geocode`).
 
 ```bash
 python -m venv .venv
@@ -126,7 +126,7 @@ python docs/build_docs.py          # päivittää menetelmädokumentin (HTML vaa
 
 Viittaa ohjelmistoon tiedoston [CITATION.cff](CITATION.cff) tiedoilla. Zenodo-julkaisun jälkeen pysyvä DOI lisätään tähän.
 
-Jääskeläinen, M. & Karirinne, S. (2026). *Rakennushaku: tilan rakennukset ja tunnittainen energiaprofiili Maatilan hybridienergialaskuriin* (versio 0.7.0) [Tietokoneohjelma]. Seinäjoen ammattikorkeakoulu. https://github.com/joriim/eip-chp-rakennushaku
+Jääskeläinen, M. & Karirinne, S. (2026). *Rakennushaku: tilan rakennukset ja tunnittainen energiaprofiili Maatilan hybridienergialaskuriin* (versio 0.7.1) [Tietokoneohjelma]. Seinäjoen ammattikorkeakoulu. https://github.com/joriim/eip-chp-rakennushaku
 
 ## Tekijät ja tekijöiden panos
 

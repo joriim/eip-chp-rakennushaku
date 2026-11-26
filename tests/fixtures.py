@@ -184,6 +184,11 @@ class FakeSession:
             return FakeResponse("forbidden", 403)
         if "/tiedostopalvelu/" in url:
             return self._lidar(url)
+        if "/geocoding/" in url:
+            hits = [] if "eiole" in params.get("text", "").lower() else [{
+                "type": "Feature", "geometry": {"type": "Point", "coordinates": [LON0, LAT0]},
+                "properties": {"label": "Testitie 1, Seinäjoki"}}]
+            return FakeResponse(json.dumps({"type": "FeatureCollection", "features": hits}))
         if "PalstanSijaintitiedot" in url:
             if "kiinteistotunnus" in params and params["kiinteistotunnus"] != "99940100030025":
                 return FakeResponse(json.dumps({"type": "FeatureCollection", "features": []}))

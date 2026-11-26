@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "src" / "rakennushaku" / "static"
 WEB = ROOT / "web"
-VERSION = "0.7.0"
+VERSION = "0.7.1"
 
 
 def sub(text: str, old: str, new: str) -> str:
@@ -50,6 +50,7 @@ def ui_js() -> str:
     switch (u.pathname) {
       case "/api/property": return RH.fetchProperty(q.kt, key);
       case "/api/property-at": return RH.propertyAt(+q.lon, +q.lat, key);
+      case "/api/geocode": return { results: await RH.geocode(q.text, key) };
       case "/api/buildings": return { buildings: await RH.buildingsForArea(b.geometry, key) };
       case "/api/buildings-around": {
         const area = RH.circle(+q.lat, +q.lon, +q.r || 250);
@@ -103,18 +104,6 @@ def ui_js() -> str:
   }
 
 ''' + js[end:]
-    # ---- property ID or street address in the same field
-    js = sub(js, '''    busy(e.submitter || $("#ktForm button"), "Haetaan…", async () => {
-      const p = await api(`/api/property?kt=${encodeURIComponent(kt)}`);
-      await useProperty(p);
-    });''', '''    busy(e.submitter || $("#ktForm button"), "Haetaan…", async () => {
-      if (RH.looksLikeKt(kt)) { await useProperty(await api(`/api/property?kt=${encodeURIComponent(kt)}`)); return; }
-      const hits = await RH.geocode(kt, mmlKey());
-      if (!hits.length) throw new Error(`Osoitetta "${kt}" ei löytynyt. Kokeile muotoa "Katu 12, Kunta" tai kiinteistötunnusta.`);
-      const p = await api(`/api/property-at?lat=${hits[0].lat}&lon=${hits[0].lon}`);
-      await useProperty(p);
-      toast(`${hits[0].label} → kiinteistö ${p.display}`);
-    });''')
     # ---- boot: metadata from the engine, key from this browser
     js = sub(js, '''    try { META = await api("/api/status"); } catch (e) { toast("Palvelimeen ei saatu yhteyttä.", true); }''',
              f'''    META = {{ version: "{VERSION} (selain)", use_types: RH.USE_TYPES, attribution: {{ ...RH.ATTR, prices: RH.PRICE_ATTR }}, has_mml_key: false,
@@ -211,8 +200,6 @@ def page() -> str:
                '<label class="keybox" for="mmlKey">MML API-avain\n'
                '      <input id="mmlKey" type="password" autocomplete="off" spellcheck="false" placeholder="liitä avain">\n'
                '    </label>\n    <span id="keyChip" class="chip"></span>')
-    html = sub(html, 'placeholder="Kiinteistötunnus (KKK-RRR-YYYY-XXXX)"', 'placeholder="Kiinteistötunnus tai osoite, esim. Kampusranta 11, Seinäjoki"')
-    html = sub(html, '<label for="kt" class="sr">Kiinteistötunnus</label>', '<label for="kt" class="sr">Kiinteistötunnus tai osoite</label>')
     docs = (WEB / "menetelmat_fragment.html").read_text(encoding="utf-8")
     html = sub(html, '<a id="docsLink" class="docslink" href="/static/menetelmat.html" target="_blank" rel="noopener">Menetelmät, oletukset ja lähteet</a>',
                '<a id="docsLink" class="docslink" href="#menetelmat">Menetelmät, oletukset ja lähteet</a>'

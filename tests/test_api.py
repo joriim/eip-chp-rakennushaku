@@ -36,6 +36,19 @@ def test_property_and_buildings_flow(client):
     assert around["area"]["type"] == "Polygon" and around["buildings"]
 
 
+def test_geocode(client):
+    r = client.get("/api/geocode", params={"text": "Testitie 1, Seinäjoki"}).json()["results"]
+    assert r[0]["label"] == "Testitie 1, Seinäjoki" and abs(r[0]["lat"] - LAT0) < 1e-9
+    assert client.get("/api/geocode", params={"text": "eiole 99"}).json()["results"] == []
+    assert client.get("/api/geocode", params={"text": " "}).status_code == 400
+
+
+def test_looks_like_kt():
+    from rakennushaku import mml
+    assert mml.looks_like_kt("999-401-3-25") and mml.looks_like_kt("99940100030025")
+    assert not mml.looks_like_kt("Kampusranta 11, Seinäjoki") and not mml.looks_like_kt("Peltotie 12")
+
+
 def test_missing_and_bad_key(client, monkeypatch):
     monkeypatch.setenv("MML_API_KEY", "")
     assert client.get("/api/property", params={"kt": "999-401-3-25"}).status_code == 503

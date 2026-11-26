@@ -91,6 +91,18 @@ def get_property_at(lat: float, lon: float) -> dict:
         raise _upstream_error(e, "Kiinteistöhaku")
 
 
+@app.get("/api/geocode")
+def get_geocode(text: str) -> dict:
+    if not text.strip():
+        raise HTTPException(400, "Anna osoite.")
+    try:
+        return {"results": mml.geocode(text.strip(), api_key(), _session)}
+    except mml.MissingApiKey as e:
+        raise HTTPException(503, str(e))
+    except Exception as e:  # noqa: BLE001
+        raise _upstream_error(e, "Osoitehaku")
+
+
 class AreaIn(BaseModel):
     geometry: dict
 

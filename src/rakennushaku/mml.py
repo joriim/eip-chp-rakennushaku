@@ -24,6 +24,7 @@ from shapely.ops import unary_union
 MML_BASE = os.environ.get("RAKENNUSHAKU_MML_BASE", "https://avoin-paikkatieto.maanmittauslaitos.fi")
 PROPERTY_URL = f"{MML_BASE}/kiinteisto-avoin/simple-features/v3/collections/PalstanSijaintitiedot/items"
 BUILDING_URL = f"{MML_BASE}/maastotiedot/features/v1/collections/rakennus/items"
+GEOCODE_URL = f"{MML_BASE}/geocoding/v2/pelias/search"
 ATTRIBUTION = "Sisältää Maanmittauslaitoksen Maastotietokannan ja kiinteistörekisterikartan aineistoa (CC BY 4.0)."
 
 # kohdeluokka // 10 -> (label, default use type)
@@ -155,6 +156,29 @@ def fetch_property(kt: str, api_key: str, session: requests.Session | None = Non
         "parts": len(feats),
         "geometry": mapping(geom),
     }
+
+
+def looks_like_kt(text: str) -> bool:
+    """Property ID (KKK-RRR-YYYY-XXXX or 14 digits) rather than a street address."""
+    import re
+    t = (text or "").strip()
+    return bool(re.fullmatch(r"\d{1,3}-\d{1,3}-\d{1,4}-\d{1,4}", t) or re.fullmatch(r"\d{14}", t))
+
+
+def geocode(text: str, api_key: str, session: requests.Session | None = None) -> list[dict]:
+    """Street addresses matching *text* (NLS geocoding service, Pelias API)."""
+    if not api_key:
+        raise MissingApiKey("MML-rajapinta-avain puuttuu (MML_API_KEY).")
+    sess = session or requests.Session()
+    r = sess.get(GEOCODE_URL, params={"text": text, "sources": "addresses", "crs": "EPSG:4326", "size": 5,
+                                      "lang": "fin", "api-key": api_key}, timeout=20)
+    r.raise_for_status()
+    out = []
+    for f in r.json().get("features") or []:
+        c = (f.get("geometry") or {}).get("coordinates") or []
+        if len(c) >= 2:
+            out.append({"label": (f.get("properties") or {}).get("label") or text, "lon": float(c[0]), "lat": float(c[1])})
+    return out
 
 
 def property_at(lon: float, lat: float, api_key: str, session: requests.Session | None = None) -> dict:

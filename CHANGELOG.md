@@ -1,5 +1,11 @@
 # Muutokset
 
+## 0.7.1 – 2026-11-26
+
+- **Hakukenttä avaa tavallisen näppäimistön.** Kenttä oli merkitty numerokentäksi, joten puhelin avasi vain numeronäppäimet eikä osoitetta voinut kirjoittaa. Kenttä hyväksyy osoitteen tai kiinteistötunnuksen.
+- **Osoitehaku myös Python-palvelinversiossa** (`/api/geocode`, MML:n osoitehaku).
+- **Kiinteistön valinta kartalta korjattu:** klikkaus jo piirretyn rakennuksen päällä valitsee kiinteistön eikä vaihda rakennuksen valintaa; valinta palauttaa 3D-näkymästä kartalle ja vierittää kartan näkyviin puhelimella; haun aikana näkyy ilmoitus.
+
 ## 0.7.0 – 2026-11-24
 
 - **Rakennusten koko ja kattomuoto laserkeilauksesta.** Valituille rakennuksille haetaan MML:n avoin Laserkeilausaineisto 0,5 p (Paikkatiedon tiedostopalvelu, OGC API Processes) ja lasketaan selaimessa: räystään ja harjan korkeus, kattomuoto ja -kaltevuus, tilavuus sekä pohjan ala keilauksen mukaan verrattuna MML:n pohjaan (laajennus, purettu rakennus). Asuin- ja toimistorakennuksille arvio kerrosluvusta ja painike lämmitetyn alan päivittämiseen. 3D-näkymä piirtää mitatut katot.

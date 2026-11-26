@@ -197,6 +197,7 @@ input:hover, select:hover { border-color: var(--ink-3); }
 input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
 input:disabled, select:disabled { opacity: .55; cursor: not-allowed; }
 input[type="number"] { font-variant-numeric: tabular-nums; }
+input[type="search"] { -webkit-appearance: none; appearance: none; }
 input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(--accent); }
 
 .btn {
